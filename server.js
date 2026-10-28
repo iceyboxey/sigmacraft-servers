@@ -136,7 +136,8 @@ function uniqueName(base, selfId) {
   for (let i = 2; ; i++) { const s = String(i), c = n.slice(0, 16 - s.length) + s; if (!taken.has(c.toLowerCase())) return c; }
 }
 function pwOk(s) {
-  if (!ADMIN_PASSWORD || typeof s !== 'string' || s.length > 200) return false;
+  if (!ADMIN_PASSWORD) return true;            // no password set: anyone using /?addmode is admin
+  if (typeof s !== 'string' || s.length > 200) return false;
   const h = x => crypto.createHash('sha256').update(x).digest();
   return crypto.timingSafeEqual(h(s), h(ADMIN_PASSWORD));
 }
@@ -162,7 +163,7 @@ function handle(p, m) {
   if (m.t === 'hello' && !p.hello) {
     p.name = uniqueName(cleanName(m.name) || p.name, p.id);
     p.hello = true;
-    send(p, { t: 'welcome', id: p.id, name: p.name, c: curTime(), players: [...players.values()].map(pub), adminEnabled: !!ADMIN_PASSWORD });
+    send(p, { t: 'welcome', id: p.id, name: p.name, c: curTime(), players: [...players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
     sendWorld(p);
     players.set(p.id, p);
     broadcast({ t: 'join', p: pub(p) }, p.id);
@@ -265,6 +266,6 @@ process.on('SIGINT', shutdown);
     } catch (e) { /* first start */ }
   }
   console.log(GH_ON ? 'GitHub backup: ON' : 'GitHub backup: OFF (set WORLD_GITHUB_REPO + WORLD_GITHUB_TOKEN)');
-  console.log(ADMIN_PASSWORD ? 'Admin reset: ON' : 'Admin reset: OFF (set ADMIN_PASSWORD)');
+  console.log(ADMIN_PASSWORD ? 'Admin reset: password required' : 'Admin reset: OPEN to anyone using /?addmode (set ADMIN_PASSWORD to protect it)');
   server.listen(PORT, () => console.log(`Sandbox server running on port ${PORT}`));
 })();
