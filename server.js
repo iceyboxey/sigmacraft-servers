@@ -178,7 +178,7 @@ function broadcast(room, obj, exceptId) {
   const s = JSON.stringify(obj);
   for (const p of room.players.values()) if (p.id !== exceptId && p.ws.readyState === 1) p.ws.send(s);
 }
-const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw });
+const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch });
 function roomList() {
   return [...rooms.values()]
     .map(r => ({ id: r.id, name: r.name, n: r.players.size, max: MAX_PLAYERS, lock: !!r.pw }))
@@ -204,7 +204,7 @@ function handle(p, m) {
     ensureMain();
     const room = rooms.get('main');
     if (room.players.size >= MAX_PLAYERS) { send(p, { t: 'err', c: 'full' }); return; }
-    p.room = room;
+    p.room = room; p.joinedAt = Date.now();
     p.name = uniqueName(room, cleanName(m.name) || p.name, p.id);
     send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), st: Date.now(), r: room.resetAt, players: [...room.players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
     sendWorld(p, room);
@@ -216,10 +216,10 @@ function handle(p, m) {
   if (!room) return;
 
   if (m.t === 'pos') {
-    const x = num(m.x, -30000, 30000), y = num(m.y, -100, 300), z = num(m.z, -30000, 30000), yaw = num(m.yaw, -100, 100);
+    const x = num(m.x, -30000, 30000), y = num(m.y, -100, 300), z = num(m.z, -30000, 30000), yaw = num(m.yaw, -100, 100), pitch = num(m.pitch, -2, 2) || 0;
     if (x === null || y === null || z === null || yaw === null) return;
-    p.x = x; p.y = y; p.z = z; p.yaw = yaw;
-    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw }, p.id);
+    p.x = x; p.y = y; p.z = z; p.yaw = yaw; p.pitch = pitch;
+    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw, pitch }, p.id);
   } else if (m.t === 'block') {
     if (p.tokens < 1) return;           // rate limit
     p.tokens--;
@@ -234,11 +234,18 @@ function handle(p, m) {
   } else if (m.t === 'name') {
     const n = uniqueName(room, cleanName(m.name), p.id);
     if (n) { p.name = n; send(p, { t: 'name', id: p.id, name: n }); broadcast(room, { t: 'name', id: p.id, name: n }, p.id); }
-  } else if (m.t === 'time') {
-    const c = num(m.c, 0, CYCLE - 0.001);
-    if (c === null) return;
-    room.timeBase = c; room.timeStamp = Date.now();
-    broadcast(room, { t: 'time', c }, p.id);
+  } else if (m.t === 'swing') {         // arm swing animation for the others
+    if (p.swTokens < 1) return; p.swTokens--;
+    broadcast(room, { t: 'swing', id: p.id }, p.id);
+  } else if (m.t === 'hit') {           // player vs player: the server checks it and tells the victim
+    if (p.hitTokens < 1) return; p.hitTokens--;
+    const q = Number.isInteger(m.id) ? room.players.get(m.id) : null;
+    if (!q || q === p || Date.now() - q.joinedAt < 3000) return;      // 3 seconds of spawn protection
+    const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
+    if (Math.hypot(dx, dy, dz) > 6.5) return;                         // too far away (reach is 4 blocks, plus lag)
+    const h = Math.hypot(dx, dz) || 1;
+    send(q, { t: 'hurt', from: p.id, name: p.name, kx: dx / h, kz: dz / h });
+    for (const o of room.players.values()) if (o !== p && o !== q) send(o, { t: 'hit', id: q.id });
   } else if (m.t === 'admin') {
     if (p.fails >= 5) return;
     if (pwOk(m.pw)) { p.admin = true; send(p, { t: 'admin', ok: true }); }
@@ -277,7 +284,7 @@ function handle(p, m) {
 
 wss.on('connection', ws => {
   if (conns.size >= MAX_CONNS) { ws.close(1013, 'server full'); return; }
-  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0, bkTokens: 20, bkBudget: 100000, overrides: 0 };
+  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0, bkTokens: 20, bkBudget: 100000, overrides: 0, hitTokens: 4, swTokens: 8, joinedAt: 0, pitch: 0 };
   p.name = 'Player' + p.id;
   conns.add(p);
   ws.on('pong', () => { p.alive = true; });
@@ -296,7 +303,7 @@ wss.on('connection', ws => {
 
 // rooms that were created but never used disappear after 2 minutes
 setInterval(() => { for (const r of [...rooms.values()]) if (r.id !== 'main' && !r.players.size && !r.edits.size && Date.now() - (r.born || 0) > 120000) rooms.delete(r.id); }, 30000);
-setInterval(() => { for (const p of conns) { p.tokens = Math.min(40, p.tokens + 40); p.bkTokens = Math.min(20, p.bkTokens + 20); } }, 1000);
+setInterval(() => { for (const p of conns) { p.tokens = Math.min(40, p.tokens + 40); p.bkTokens = Math.min(20, p.bkTokens + 20); p.hitTokens = Math.min(4, p.hitTokens + 3); p.swTokens = Math.min(8, p.swTokens + 8); } }, 1000);
 setInterval(() => { for (const r of rooms.values()) if (r.players.size) broadcast(r, { t: 'time', c: roomTime(r) }); }, 20000);
 // keep connections alive behind proxies and drop dead ones
 setInterval(() => {
