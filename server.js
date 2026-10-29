@@ -4,6 +4,8 @@
 // - Relays player positions, block edits and time of day over WebSocket
 // - One shared world: everyone is auto-joined to the 'main' room (no lobby, no room codes)
 // - Keeps EVERY block edit forever (placed or broken) so a room's world stays one shared map
+// - Every edit carries a server timestamp. Players keep a copy of the world in their browser and
+//   hand over whatever the server is missing when they rejoin (e.g. after a Render restart)
 // - Saves to world.json and (optionally) backs it up to a GitHub repo so it survives
 //   Render free-plan restarts
 // - Admin (password from ADMIN_PASSWORD) can reset the world
@@ -31,13 +33,13 @@ const Y_MIN = -16, Y_MAX = 31;
 const LOCAL_SAVE_MS = 10000, GH_SAVE_MS = 60000;
 
 // ---------- rooms / shared world state ----------
-// room: { id, name, pw (sha256 hex or ''), edits: Map("x,y,z" -> block id, 0 = broken), players: Map, timeBase, timeStamp }
+// room: { id, name, pw, resetAt (ms time of the last admin reset), edits: Map("x,y,z" -> ts*16 + block id (0 = broken)), players: Map, timeBase, timeStamp }
 const rooms = new Map();
 let dirtyLocal = false, dirtyGh = false, lastGhPush = 0;
 const sha = x => crypto.createHash('sha256').update(String(x)).digest('hex');
 const roomTime = r => (r.timeBase + (Date.now() - r.timeStamp) / 1000) % CYCLE;
 function newRoom(id, name, pwHash) {
-  const r = { id, name, pw: pwHash || '', edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now(), born: Date.now() };
+  const r = { id, name, pw: pwHash || '', resetAt: 0, edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now(), born: Date.now() };
   rooms.set(id, r); return r;
 }
 function ensureMain() { if (!rooms.has('main')) newRoom('main', 'Main World', ''); }
@@ -45,15 +47,22 @@ function ensureMain() { if (!rooms.has('main')) newRoom('main', 'Main World', ''
 function loadFromText(text) {
   const raw = JSON.parse(text);
   const out = new Map();
-  const readEdits = (list, m) => { for (const e of list || []) if (Array.isArray(e) && e.length === 4 && e.every(Number.isInteger)) m.set(`${e[0]},${e[1]},${e[2]}`, e[3]); };
+  const readEdits = (list, m) => {
+    for (const e of list || []) {
+      if (!Array.isArray(e) || (e.length !== 4 && e.length !== 5) || !e.every(Number.isInteger)) continue;
+      const ts = e.length === 5 ? e[4] : 0;           // old save files have no timestamps
+      if (e[3] < 0 || e[3] > 9 || ts < 0) continue;
+      m.set(`${e[0]},${e[1]},${e[2]}`, ts * 16 + e[3]);
+    }
+  };
   if (Array.isArray(raw.rooms)) {
     for (const x of raw.rooms) {
       if (!x || typeof x.id !== 'string') continue;
-      const r = { id: x.id, name: String(x.name || x.id).slice(0, 20), pw: typeof x.pw === 'string' ? x.pw : '', edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
+      const r = { id: x.id, name: String(x.name || x.id).slice(0, 20), pw: typeof x.pw === 'string' ? x.pw : '', resetAt: Number.isInteger(x.reset) && x.reset > 0 ? x.reset : 0, edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
       readEdits(x.edits, r.edits); out.set(r.id, r);
     }
   } else if (Array.isArray(raw.edits)) {            // old single-world file -> becomes the main room
-    const r = { id: 'main', name: 'Main World', pw: '', edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
+    const r = { id: 'main', name: 'Main World', pw: '', resetAt: 0, edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
     readEdits(raw.edits, r.edits); out.set('main', r);
   }
   return out;
@@ -64,8 +73,8 @@ function serialize() {
   for (const r of rooms.values()) {
     if (r.id !== 'main' && r.edits.size === 0 && r.players.size === 0) continue;   // do not save empty, unused rooms
     const list = [];
-    for (const [k, b] of r.edits) { const [x, y, z] = k.split(',').map(Number); list.push([x, y, z, b]); }
-    out.push({ id: r.id, name: r.name, pw: r.pw, edits: list });
+    for (const [k, v] of r.edits) { const [x, y, z] = k.split(',').map(Number); list.push([x, y, z, v % 16, Math.floor(v / 16)]); }
+    out.push({ id: r.id, name: r.name, pw: r.pw, reset: r.resetAt, edits: list });
   }
   return JSON.stringify({ rooms: out });
 }
@@ -144,7 +153,7 @@ const server = http.createServer((req, res) => {
 });
 
 // ---------- WebSocket ----------
-const wss = new WebSocketServer({ server, maxPayload: 2048 });
+const wss = new WebSocketServer({ server, maxPayload: 65536 });
 const conns = new Set();
 let nextId = 1;
 
@@ -177,12 +186,13 @@ function roomList() {
 }
 function sendWorld(p, room) {          // the full saved world of the room, in batches
   let batch = [];
-  for (const [k, b] of room.edits) {
+  for (const [k, v] of room.edits) {
     const [x, y, z] = k.split(',').map(Number);
-    batch.push([x, y, z, b]);
-    if (batch.length >= 4000) { send(p, { t: 'edits', e: batch }); batch = []; }
+    batch.push([x, y, z, v % 16, Math.floor(v / 16)]);
+    if (batch.length >= 3000) { send(p, { t: 'edits', e: batch }); batch = []; }
   }
   if (batch.length) send(p, { t: 'edits', e: batch });
+  send(p, { t: 'synced' });                 // the client now knows what the server has and can hand over what is missing
 }
 function dropIfUnused(room) {
   if (room.id !== 'main' && room.players.size === 0 && room.edits.size === 0) rooms.delete(room.id);
@@ -196,7 +206,7 @@ function handle(p, m) {
     if (room.players.size >= MAX_PLAYERS) { send(p, { t: 'err', c: 'full' }); return; }
     p.room = room;
     p.name = uniqueName(room, cleanName(m.name) || p.name, p.id);
-    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), players: [...room.players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
+    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), st: Date.now(), r: room.resetAt, players: [...room.players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
     sendWorld(p, room);
     room.players.set(p.id, p);
     broadcast(room, { t: 'join', p: pub(p) }, p.id);
@@ -217,8 +227,10 @@ function handle(p, m) {
     if (x === null || y === null || z === null || b === null) return;
     const key = `${x},${y},${z}`;
     if (!room.edits.has(key) && room.edits.size >= MAX_EDITS) return;
-    room.edits.set(key, b); markDirty();
-    broadcast(room, { t: 'block', x, y, z, b }, p.id);
+    const ts = Date.now();
+    room.edits.set(key, ts * 16 + b); markDirty();
+    broadcast(room, { t: 'block', x, y, z, b, ts }, p.id);
+    send(p, { t: 'a', x, y, z, ts });        // tell the sender the official timestamp of its edit
   } else if (m.t === 'name') {
     const n = uniqueName(room, cleanName(m.name), p.id);
     if (n) { p.name = n; send(p, { t: 'name', id: p.id, name: n }); broadcast(room, { t: 'name', id: p.id, name: n }, p.id); }
@@ -231,18 +243,41 @@ function handle(p, m) {
     if (p.fails >= 5) return;
     if (pwOk(m.pw)) { p.admin = true; send(p, { t: 'admin', ok: true }); }
     else { p.fails++; send(p, { t: 'admin', ok: false }); }
+  } else if (m.t === 'backup') {
+    // A player hands over edits the server is missing (for example after the server restarted).
+    // Untrusted input: validated, rate limited and capped per connection.
+    if (p.bkTokens < 1 || !Array.isArray(m.e) || m.e.length > 400) return;
+    p.bkTokens--;
+    const now = Date.now();
+    if (room.resetAt === 0 && Number.isInteger(m.r) && m.r > 0 && m.r <= now) room.resetAt = m.r;   // the server forgot a reset it had: learn it again
+    const accepted = [];
+    for (const e of m.e) {
+      if (p.bkBudget < 1) break;
+      if (!Array.isArray(e) || e.length !== 5 || !e.every(Number.isInteger)) continue;
+      const [x, y, z, b, ts] = e;
+      if (x < -30000 || x > 30000 || z < -30000 || z > 30000 || y < Y_MIN || y > Y_MAX || b < 0 || b > 9) continue;
+      if (ts <= 0 || ts > now + 5000 || ts < room.resetAt) continue;          // no future times, nothing from before the last reset
+      p.bkBudget--;
+      const key = `${x},${y},${z}`, cur = room.edits.get(key);
+      if (cur === undefined) { if (room.edits.size >= MAX_EDITS) continue; }
+      else if (ts <= Math.floor(cur / 16) || p.overrides >= 2000) continue;   // the server's copy is newer (or equal): keep it
+      else p.overrides++;
+      room.edits.set(key, ts * 16 + b);
+      accepted.push([x, y, z, b, ts]);
+    }
+    if (accepted.length) { markDirty(); broadcast(room, { t: 'edits', e: accepted }, p.id); }
   } else if (m.t === 'reset') {
     if (!p.admin) return;
     console.log(`World reset by ${p.name} in room ${room.name} (${room.edits.size} edits deleted)`);
-    room.edits.clear(); markDirty();
-    broadcast(room, { t: 'reset' });
+    room.edits.clear(); room.resetAt = Date.now(); markDirty();
+    broadcast(room, { t: 'reset', r: room.resetAt });
     saveAll(true);
   }
 }
 
 wss.on('connection', ws => {
   if (conns.size >= MAX_CONNS) { ws.close(1013, 'server full'); return; }
-  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0 };
+  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0, bkTokens: 20, bkBudget: 100000, overrides: 0 };
   p.name = 'Player' + p.id;
   conns.add(p);
   ws.on('pong', () => { p.alive = true; });
@@ -261,7 +296,7 @@ wss.on('connection', ws => {
 
 // rooms that were created but never used disappear after 2 minutes
 setInterval(() => { for (const r of [...rooms.values()]) if (r.id !== 'main' && !r.players.size && !r.edits.size && Date.now() - (r.born || 0) > 120000) rooms.delete(r.id); }, 30000);
-setInterval(() => { for (const p of conns) p.tokens = Math.min(40, p.tokens + 40); }, 1000);
+setInterval(() => { for (const p of conns) { p.tokens = Math.min(40, p.tokens + 40); p.bkTokens = Math.min(20, p.bkTokens + 20); } }, 1000);
 setInterval(() => { for (const r of rooms.values()) if (r.players.size) broadcast(r, { t: 'time', c: roomTime(r) }); }, 20000);
 // keep connections alive behind proxies and drop dead ones
 setInterval(() => {
