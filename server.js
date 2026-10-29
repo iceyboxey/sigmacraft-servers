@@ -2,7 +2,8 @@
 // Multiplayer server for the 3D sandbox.
 // - Serves public/index.html
 // - Relays player positions, block edits and time of day over WebSocket
-// - Keeps EVERY block edit forever (placed or broken) so the world stays one shared map
+// - One shared world: everyone is auto-joined to the 'main' room (no lobby, no room codes)
+// - Keeps EVERY block edit forever (placed or broken) so a room's world stays one shared map
 // - Saves to world.json and (optionally) backs it up to a GitHub repo so it survives
 //   Render free-plan restarts
 // - Admin (password from ADMIN_PASSWORD) can reset the world
@@ -22,30 +23,51 @@ const GH_BRANCH = process.env.WORLD_GITHUB_BRANCH || 'main';
 const GH_FILE = process.env.WORLD_GITHUB_FILE || 'world.json';
 const GH_API = process.env.WORLD_GITHUB_API || 'https://api.github.com';
 const GH_ON = !!(GH_REPO && GH_TOKEN);
-const MAX_PLAYERS = 20;
-const MAX_EDITS = 500000;
+const MAX_PLAYERS = 20;          // per room
+const MAX_EDITS = 500000;        // per room
+const MAX_ROOMS = 50, MAX_CONNS = 300;
 const CYCLE = 600;           // seconds: 300 day + 300 night (must match the client)
 const Y_MIN = -16, Y_MAX = 31;
 const LOCAL_SAVE_MS = 10000, GH_SAVE_MS = 60000;
 
-// ---------- shared world state ----------
-const edits = new Map();     // "x,y,z" -> block id (0 = broken). Never removed except by admin reset.
+// ---------- rooms / shared world state ----------
+// room: { id, name, pw (sha256 hex or ''), edits: Map("x,y,z" -> block id, 0 = broken), players: Map, timeBase, timeStamp }
+const rooms = new Map();
 let dirtyLocal = false, dirtyGh = false, lastGhPush = 0;
-let timeBase = 0, timeStamp = Date.now();
-const curTime = () => (timeBase + (Date.now() - timeStamp) / 1000) % CYCLE;
+const sha = x => crypto.createHash('sha256').update(String(x)).digest('hex');
+const roomTime = r => (r.timeBase + (Date.now() - r.timeStamp) / 1000) % CYCLE;
+function newRoom(id, name, pwHash) {
+  const r = { id, name, pw: pwHash || '', edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now(), born: Date.now() };
+  rooms.set(id, r); return r;
+}
+function ensureMain() { if (!rooms.has('main')) newRoom('main', 'Main World', ''); }
 
 function loadFromText(text) {
   const raw = JSON.parse(text);
-  const m = new Map();
-  for (const e of raw.edits || []) {
-    if (Array.isArray(e) && e.length === 4 && e.every(Number.isInteger)) m.set(`${e[0]},${e[1]},${e[2]}`, e[3]);
+  const out = new Map();
+  const readEdits = (list, m) => { for (const e of list || []) if (Array.isArray(e) && e.length === 4 && e.every(Number.isInteger)) m.set(`${e[0]},${e[1]},${e[2]}`, e[3]); };
+  if (Array.isArray(raw.rooms)) {
+    for (const x of raw.rooms) {
+      if (!x || typeof x.id !== 'string') continue;
+      const r = { id: x.id, name: String(x.name || x.id).slice(0, 20), pw: typeof x.pw === 'string' ? x.pw : '', edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
+      readEdits(x.edits, r.edits); out.set(r.id, r);
+    }
+  } else if (Array.isArray(raw.edits)) {            // old single-world file -> becomes the main room
+    const r = { id: 'main', name: 'Main World', pw: '', edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
+    readEdits(raw.edits, r.edits); out.set('main', r);
   }
-  return m;
+  return out;
 }
+function totalEdits() { let n = 0; for (const r of rooms.values()) n += r.edits.size; return n; }
 function serialize() {
   const out = [];
-  for (const [k, b] of edits) { const [x, y, z] = k.split(',').map(Number); out.push([x, y, z, b]); }
-  return JSON.stringify({ edits: out });
+  for (const r of rooms.values()) {
+    if (r.id !== 'main' && r.edits.size === 0 && r.players.size === 0) continue;   // do not save empty, unused rooms
+    const list = [];
+    for (const [k, b] of r.edits) { const [x, y, z] = k.split(',').map(Number); list.push([x, y, z, b]); }
+    out.push({ id: r.id, name: r.name, pw: r.pw, edits: list });
+  }
+  return JSON.stringify({ rooms: out });
 }
 
 // ---------- GitHub backup ----------
@@ -73,7 +95,7 @@ async function ghPush(text) {
   const content = Buffer.from(text).toString('base64');
   for (let i = 0; i < 2; i++) {
     const sha = await ghSha();
-    const payload = { message: `World save (${edits.size} edits)`, content, branch: GH_BRANCH };
+    const payload = { message: `World save (${totalEdits()} edits, ${rooms.size} rooms)`, content, branch: GH_BRANCH };
     if (sha) payload.sha = sha;
     const r = await ghFetch(ghUrl(`contents/${GH_FILE}`), {
       method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/vnd.github+json' }, body: JSON.stringify(payload)
@@ -98,7 +120,7 @@ async function saveAll(force) {
     }
     if (GH_ON && dirtyGh && (force || Date.now() - lastGhPush >= GH_SAVE_MS)) {
       dirtyGh = false;
-      try { await ghPush(serialize()); lastGhPush = Date.now(); console.log(`Saved ${edits.size} edits to GitHub`); }
+      try { await ghPush(serialize()); lastGhPush = Date.now(); console.log(`Saved ${totalEdits()} edits (${rooms.size} rooms) to GitHub`); }
       catch (e) { dirtyGh = true; lastGhPush = Date.now(); console.error(e.message); }
     }
   } finally { saving = false; }
@@ -109,7 +131,7 @@ setInterval(() => saveAll(false), LOCAL_SAVE_MS);
 // ---------- HTTP (static page + health check) ----------
 const server = http.createServer((req, res) => {
   const url = (req.url || '/').split('?')[0];
-  if (url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
+  if (url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }); return res.end('ok'); }
   if (url === '/' || url === '/index.html') {
     return fs.readFile(INDEX_FILE, (err, data) => {
       if (err) { res.writeHead(500); return res.end('index.html missing'); }
@@ -123,109 +145,127 @@ const server = http.createServer((req, res) => {
 
 // ---------- WebSocket ----------
 const wss = new WebSocketServer({ server, maxPayload: 2048 });
-const players = new Map();
+const conns = new Set();
 let nextId = 1;
 
 const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null);
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
-const cleanName = n => (typeof n === 'string' ? n.replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16) : '');
-function uniqueName(base, selfId) {
+const clean = (n, max) => (typeof n === 'string' ? n.replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : '');
+const cleanName = n => clean(n, 16);
+function uniqueName(room, base, selfId) {
   const n = base || 'Player';
-  const taken = new Set([...players.values()].filter(q => q.id !== selfId).map(q => q.name.toLowerCase()));
+  const taken = new Set([...room.players.values()].filter(q => q.id !== selfId).map(q => q.name.toLowerCase()));
   if (!taken.has(n.toLowerCase())) return n;
   for (let i = 2; ; i++) { const s = String(i), c = n.slice(0, 16 - s.length) + s; if (!taken.has(c.toLowerCase())) return c; }
 }
 function pwOk(s) {
   if (!ADMIN_PASSWORD) return true;            // no password set: anyone using /?addmode is admin
   if (typeof s !== 'string' || s.length > 200) return false;
-  const h = x => crypto.createHash('sha256').update(x).digest();
-  return crypto.timingSafeEqual(h(s), h(ADMIN_PASSWORD));
+  return crypto.timingSafeEqual(crypto.createHash('sha256').update(s).digest(), crypto.createHash('sha256').update(ADMIN_PASSWORD).digest());
 }
 
 function send(p, obj) { if (p.ws.readyState === 1) p.ws.send(JSON.stringify(obj)); }
-function broadcast(obj, exceptId) {
+function broadcast(room, obj, exceptId) {
   const s = JSON.stringify(obj);
-  for (const p of players.values()) if (p.id !== exceptId && p.ws.readyState === 1) p.ws.send(s);
+  for (const p of room.players.values()) if (p.id !== exceptId && p.ws.readyState === 1) p.ws.send(s);
 }
 const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw });
-
-function sendWorld(p) {          // the full saved world, in batches
+function roomList() {
+  return [...rooms.values()]
+    .map(r => ({ id: r.id, name: r.name, n: r.players.size, max: MAX_PLAYERS, lock: !!r.pw }))
+    .sort((a, b) => (b.id === 'main') - (a.id === 'main') || b.n - a.n || a.name.localeCompare(b.name));
+}
+function sendWorld(p, room) {          // the full saved world of the room, in batches
   let batch = [];
-  for (const [k, b] of edits) {
+  for (const [k, b] of room.edits) {
     const [x, y, z] = k.split(',').map(Number);
     batch.push([x, y, z, b]);
     if (batch.length >= 4000) { send(p, { t: 'edits', e: batch }); batch = []; }
   }
   if (batch.length) send(p, { t: 'edits', e: batch });
 }
+function dropIfUnused(room) {
+  if (room.id !== 'main' && room.players.size === 0 && room.edits.size === 0) rooms.delete(room.id);
+}
+const newId = () => { for (;;) { const id = crypto.randomBytes(4).toString('hex').slice(0, 6); if (!rooms.has(id)) return id; } };
 
 function handle(p, m) {
-  if (m.t === 'hello' && !p.hello) {
-    p.name = uniqueName(cleanName(m.name) || p.name, p.id);
-    p.hello = true;
-    send(p, { t: 'welcome', id: p.id, name: p.name, c: curTime(), players: [...players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
-    sendWorld(p);
-    players.set(p.id, p);
-    broadcast({ t: 'join', p: pub(p) }, p.id);
+  if (m.t === 'hello' && !p.room) {
+    ensureMain();
+    const room = rooms.get('main');
+    if (room.players.size >= MAX_PLAYERS) { send(p, { t: 'err', c: 'full' }); return; }
+    p.room = room;
+    p.name = uniqueName(room, cleanName(m.name) || p.name, p.id);
+    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), players: [...room.players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
+    sendWorld(p, room);
+    room.players.set(p.id, p);
+    broadcast(room, { t: 'join', p: pub(p) }, p.id);
     return;
   }
-  if (!p.hello) return;
+  const room = p.room;
+  if (!room) return;
 
   if (m.t === 'pos') {
     const x = num(m.x, -30000, 30000), y = num(m.y, -100, 300), z = num(m.z, -30000, 30000), yaw = num(m.yaw, -100, 100);
     if (x === null || y === null || z === null || yaw === null) return;
     p.x = x; p.y = y; p.z = z; p.yaw = yaw;
-    broadcast({ t: 'pos', id: p.id, x, y, z, yaw }, p.id);
+    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw }, p.id);
   } else if (m.t === 'block') {
     if (p.tokens < 1) return;           // rate limit
     p.tokens--;
     const x = int(m.x, -30000, 30000), y = int(m.y, Y_MIN, Y_MAX), z = int(m.z, -30000, 30000), b = int(m.b, 0, 9);
     if (x === null || y === null || z === null || b === null) return;
     const key = `${x},${y},${z}`;
-    if (!edits.has(key) && edits.size >= MAX_EDITS) return;
-    edits.set(key, b); markDirty();
-    broadcast({ t: 'block', x, y, z, b }, p.id);
+    if (!room.edits.has(key) && room.edits.size >= MAX_EDITS) return;
+    room.edits.set(key, b); markDirty();
+    broadcast(room, { t: 'block', x, y, z, b }, p.id);
   } else if (m.t === 'name') {
-    const n = uniqueName(cleanName(m.name), p.id);
-    if (n) { p.name = n; send(p, { t: 'name', id: p.id, name: n }); broadcast({ t: 'name', id: p.id, name: n }, p.id); }
+    const n = uniqueName(room, cleanName(m.name), p.id);
+    if (n) { p.name = n; send(p, { t: 'name', id: p.id, name: n }); broadcast(room, { t: 'name', id: p.id, name: n }, p.id); }
   } else if (m.t === 'time') {
     const c = num(m.c, 0, CYCLE - 0.001);
     if (c === null) return;
-    timeBase = c; timeStamp = Date.now();
-    broadcast({ t: 'time', c }, p.id);
+    room.timeBase = c; room.timeStamp = Date.now();
+    broadcast(room, { t: 'time', c }, p.id);
   } else if (m.t === 'admin') {
     if (p.fails >= 5) return;
     if (pwOk(m.pw)) { p.admin = true; send(p, { t: 'admin', ok: true }); }
     else { p.fails++; send(p, { t: 'admin', ok: false }); }
   } else if (m.t === 'reset') {
     if (!p.admin) return;
-    console.log(`World reset by ${p.name} (${edits.size} edits deleted)`);
-    edits.clear(); markDirty();
-    broadcast({ t: 'reset' });
+    console.log(`World reset by ${p.name} in room ${room.name} (${room.edits.size} edits deleted)`);
+    room.edits.clear(); markDirty();
+    broadcast(room, { t: 'reset' });
     saveAll(true);
   }
 }
 
 wss.on('connection', ws => {
-  if (players.size >= MAX_PLAYERS) { ws.close(1013, 'server full'); return; }
-  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, hello: false, tokens: 40, alive: true, admin: false, fails: 0 };
+  if (conns.size >= MAX_CONNS) { ws.close(1013, 'server full'); return; }
+  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0 };
   p.name = 'Player' + p.id;
+  conns.add(p);
   ws.on('pong', () => { p.alive = true; });
   ws.on('message', (data, isBinary) => {
     if (isBinary) return;
     let m; try { m = JSON.parse(data.toString()); } catch (e) { return; }
     if (m && typeof m.t === 'string') handle(p, m);
   });
-  ws.on('close', () => { if (players.delete(p.id) && p.hello) broadcast({ t: 'leave', id: p.id }); });
+  ws.on('close', () => {
+    conns.delete(p);
+    const room = p.room;
+    if (room && room.players.delete(p.id)) { broadcast(room, { t: 'leave', id: p.id }); dropIfUnused(room); }
+  });
   ws.on('error', () => {});
 });
 
-setInterval(() => { for (const p of players.values()) p.tokens = Math.min(40, p.tokens + 40); }, 1000);
-setInterval(() => broadcast({ t: 'time', c: curTime() }), 20000);
+// rooms that were created but never used disappear after 2 minutes
+setInterval(() => { for (const r of [...rooms.values()]) if (r.id !== 'main' && !r.players.size && !r.edits.size && Date.now() - (r.born || 0) > 120000) rooms.delete(r.id); }, 30000);
+setInterval(() => { for (const p of conns) p.tokens = Math.min(40, p.tokens + 40); }, 1000);
+setInterval(() => { for (const r of rooms.values()) if (r.players.size) broadcast(r, { t: 'time', c: roomTime(r) }); }, 20000);
 // keep connections alive behind proxies and drop dead ones
 setInterval(() => {
-  for (const ws of wss.clients) ws.ping();
-  for (const p of [...players.values()]) { if (!p.alive) p.ws.terminate(); else p.alive = false; }
+  for (const p of [...conns]) { if (!p.alive) p.ws.terminate(); else { p.alive = false; try { p.ws.ping(); } catch (e) {} } }
 }, 30000);
 
 let stopping = false;
@@ -247,9 +287,9 @@ process.on('SIGINT', shutdown);
     for (let i = 1; i <= 5 && !loaded; i++) {
       try {
         const text = await ghLoad();
-        if (text) for (const [k, v] of loadFromText(text)) edits.set(k, v);
+        if (text) for (const [k, v] of loadFromText(text)) rooms.set(k, v);
         loaded = true;
-        console.log(`Loaded ${edits.size} block edits from GitHub (${GH_REPO})`);
+        console.log(`Loaded ${rooms.size} rooms, ${totalEdits()} block edits from GitHub (${GH_REPO})`);
       } catch (e) {
         console.error(`GitHub load attempt ${i} failed: ${e.message}`);
         await new Promise(r => setTimeout(r, 3000));
@@ -258,13 +298,14 @@ process.on('SIGINT', shutdown);
     // Never start with an empty world if the backup could not be read: we would overwrite it.
     if (!loaded) { console.error('Could not read the GitHub backup, exiting so the world is not overwritten.'); process.exit(1); }
   }
-  if (edits.size === 0) {
+  if (totalEdits() === 0) {
     try {
-      for (const [k, v] of loadFromText(fs.readFileSync(WORLD_FILE, 'utf8'))) edits.set(k, v);
-      console.log(`Loaded ${edits.size} block edits from ${WORLD_FILE}`);
-      if (GH_ON && edits.size) dirtyGh = true;
+      for (const [k, v] of loadFromText(fs.readFileSync(WORLD_FILE, 'utf8'))) rooms.set(k, v);
+      console.log(`Loaded ${rooms.size} rooms, ${totalEdits()} block edits from ${WORLD_FILE}`);
+      if (GH_ON && totalEdits()) dirtyGh = true;
     } catch (e) { /* first start */ }
   }
+  ensureMain();
   console.log(GH_ON ? 'GitHub backup: ON' : 'GitHub backup: OFF (set WORLD_GITHUB_REPO + WORLD_GITHUB_TOKEN)');
   console.log(ADMIN_PASSWORD ? 'Admin reset: password required' : 'Admin reset: OPEN to anyone using /?addmode (set ADMIN_PASSWORD to protect it)');
   server.listen(PORT, () => console.log(`Sandbox server running on port ${PORT}`));
