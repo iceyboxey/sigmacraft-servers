@@ -29,7 +29,7 @@ const MAX_PLAYERS = 20;          // per room
 const MAX_EDITS = 500000;        // per room
 const MAX_ROOMS = 50, MAX_CONNS = 300;
 const CYCLE = 600;           // seconds: 300 day + 300 night (must match the client)
-const Y_MIN = -16, Y_MAX = 31;
+const Y_MIN = -64, Y_MAX = 47;
 const LOCAL_SAVE_MS = 10000, GH_SAVE_MS = 60000;
 
 // ---------- rooms / shared world state ----------
@@ -51,7 +51,7 @@ function loadFromText(text) {
     for (const e of list || []) {
       if (!Array.isArray(e) || (e.length !== 4 && e.length !== 5) || !e.every(Number.isInteger)) continue;
       const ts = e.length === 5 ? e[4] : 0;           // old save files have no timestamps
-      if (e[3] < 0 || e[3] > 9 || ts < 0) continue;
+      if (e[3] < 0 || e[3] > 14 || ts < 0) continue;
       m.set(`${e[0]},${e[1]},${e[2]}`, ts * 16 + e[3]);
     }
   };
@@ -223,7 +223,7 @@ function handle(p, m) {
   } else if (m.t === 'block') {
     if (p.tokens < 1) return;           // rate limit
     p.tokens--;
-    const x = int(m.x, -30000, 30000), y = int(m.y, Y_MIN, Y_MAX), z = int(m.z, -30000, 30000), b = int(m.b, 0, 9);
+    const x = int(m.x, -30000, 30000), y = int(m.y, Y_MIN, Y_MAX), z = int(m.z, -30000, 30000), b = int(m.b, 0, 14);
     if (x === null || y === null || z === null || b === null) return;
     const key = `${x},${y},${z}`;
     if (!room.edits.has(key) && room.edits.size >= MAX_EDITS) return;
@@ -262,7 +262,7 @@ function handle(p, m) {
       if (p.bkBudget < 1) break;
       if (!Array.isArray(e) || e.length !== 5 || !e.every(Number.isInteger)) continue;
       const [x, y, z, b, ts] = e;
-      if (x < -30000 || x > 30000 || z < -30000 || z > 30000 || y < Y_MIN || y > Y_MAX || b < 0 || b > 9) continue;
+      if (x < -30000 || x > 30000 || z < -30000 || z > 30000 || y < Y_MIN || y > Y_MAX || b < 0 || b > 14) continue;
       if (ts <= 0 || ts > now + 5000 || ts < room.resetAt) continue;          // no future times, nothing from before the last reset
       p.bkBudget--;
       const key = `${x},${y},${z}`, cur = room.edits.get(key);
