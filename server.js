@@ -39,11 +39,11 @@ const rooms = new Map();
 const DROP_ITEMS = { has: i => Number.isInteger(i) && i >= 1 && i <= 200 && i !== 15 && i !== 16 && i !== 17 && i !== 25 && !(i >= 11 && i <= 13) }, MAX_DROPS = 300, DROP_LIFE = 300000;
 let dropSeq = 0;
 const dropsOf = r => r.drops || (r.drops = new Map());
-function addDrop(room, item, x, y, z) {
+function addDrop(room, item, x, y, z, count, owner) {
   const d = dropsOf(room);
   if (d.size >= MAX_DROPS) { const old = d.keys().next().value; d.delete(old); broadcast(room, { t: 'gone', did: old }); }
-  const did = ++dropSeq; d.set(did, { i: item, x, y, z, t: Date.now() });
-  broadcast(room, { t: 'drop', did, i: item, x, y, z });
+  const did = ++dropSeq; d.set(did, { i: item, x, y, z, t: Date.now(), c: count || 1, o: owner || 0, u: owner ? Date.now() + 5000 : 0 });
+  broadcast(room, { t: 'drop', did, i: item, x, y, z, c: count || 1 });
 }
 let dirtyLocal = false, dirtyGh = false, lastGhPush = 0;
 const sha = x => crypto.createHash('sha256').update(String(x)).digest('hex');
@@ -216,7 +216,7 @@ function handle(p, m) {
     if (room.players.size >= MAX_PLAYERS) { send(p, { t: 'err', c: 'full' }); return; }
     p.room = room; p.joinedAt = Date.now();
     p.name = uniqueName(room, cleanName(m.name) || p.name, p.id);
-    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), st: Date.now(), r: room.resetAt, players: [...room.players.values()].map(pub), drops: [...dropsOf(room)].map(([id, d]) => [id, d.i, d.x, d.y, d.z]), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
+    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), st: Date.now(), r: room.resetAt, players: [...room.players.values()].map(pub), drops: [...dropsOf(room)].map(([id, d]) => [id, d.i, d.x, d.y, d.z, d.c || 1]), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
     sendWorld(p, room);
     room.players.set(p.id, p);
     broadcast(room, { t: 'join', p: pub(p) }, p.id);
@@ -251,9 +251,51 @@ function handle(p, m) {
     if (p.pickTokens < 1) return; p.pickTokens--;
     const did = int(m.did, 1, 1e12), d = did !== null ? dropsOf(room).get(did) : null;
     if (!d || Math.hypot(p.x - d.x, p.z - d.z) > 8 || Math.abs(p.y - d.y) > 10) return;
+    if (d.o === p.id && Date.now() < d.u) return;                       // you can't pick up your own throw straight away
     dropsOf(room).delete(did);
-    send(p, { t: 'got', did, i: d.i });
+    send(p, { t: 'got', did, i: d.i, c: d.c || 1 });
     broadcast(room, { t: 'gone', did }, p.id);
+  } else if (m.t === 'toss') {          // a player throws items out of the inventory
+    const now = Date.now(); if (now - (p.lastToss || 0) < 150) return; p.lastToss = now;
+    const i = int(m.i, 1, 200), n = int(m.n, 1, 9999), x = Number(m.x), y = Number(m.y), z = Number(m.z);
+    if (i === null || n === null || !DROP_ITEMS.has(i) || ![x, y, z].every(Number.isFinite)) return;
+    if (Math.hypot(x - p.x, z - p.z) > 6 || Math.abs(y - p.y) > 6) return;
+    addDrop(room, i, x, y, z, n, p.id);
+  } else if (m.t === 'ents') {          // villagers and monsters: the first player to send one owns it, the others follow
+    const now = Date.now(); if (now - (p.entT || 0) < 80) return; p.entT = now;
+    if (!Array.isArray(m.l) || m.l.length > 60) return;
+    const ents = room.ents || (room.ents = new Map()), out = [], lost = [];
+    for (const e of m.l) {
+      if (!Array.isArray(e) || typeof e[0] !== 'string' || !/^[vm][\w.,-]{0,40}$/.test(e[0])) continue;
+      const k = e[1] === 1 ? 1 : 0, x = Number(e[2]), y = Number(e[3]), z = Number(e[4]), yaw = Number(e[5]);
+      if (![x, y, z, yaw].every(Number.isFinite) || Math.abs(x) > 30000 || Math.abs(z) > 30000 || Math.abs(y) > 500) continue;
+      const cur = ents.get(e[0]);
+      if (cur && cur.o !== p.id && now - cur.t < 3000 && room.players.has(cur.o)) { lost.push([e[0], cur.o]); continue; }
+      if (!cur && ents.size >= 400) continue;
+      ents.set(e[0], { o: p.id, t: now, k, x, y, z });
+      out.push([e[0], k, x, y, z, yaw, k === 1 ? (Number(e[6]) || 1) : 0]);
+    }
+    if (lost.length) send(p, { t: 'eown', l: lost.filter(l => l[0][0] === 'v') });
+    broadcast(room, { t: 'ents', o: p.id, l: out }, p.id);
+  } else if (m.t === 'ehit') {          // somebody hit a monster that another player simulates: pass it on to that player
+    if (p.hitTokens < 1) return; p.hitTokens--;
+    const e = typeof m.id === 'string' && room.ents ? room.ents.get(m.id) : null, d = Number(m.d);
+    if (!e || e.k !== 1 || e.o === p.id || !Number.isFinite(d)) return;
+    if (Math.hypot(p.x - e.x, p.z - e.z) > 12) return;
+    const q = room.players.get(e.o); if (!q) return;
+    send(q, { t: 'ehit', id: m.id, d: Math.max(1, Math.min(20, d)), kx: Number(m.kx) || 0, kz: Number(m.kz) || 0 });
+  } else if (m.t === 'chat') {          // text chat: everybody in the room sees it
+    const now = Date.now(); if (now - (p.chatT || 0) < 700) return; p.chatT = now;
+    const text = String(m.text == null ? '' : m.text).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 120);
+    if (text) broadcast(room, { t: 'chat', id: p.id, name: p.name, text });
+  } else if (m.t === 'died' || m.t === 'alive') {   // so the others can show a player lying on the ground
+    const now = Date.now(); if (now - (p.lifeT || 0) < 300) return; p.lifeT = now;
+    broadcast(room, { t: m.t, id: p.id }, p.id);
+  } else if (m.t === 'rtc') {           // voice chat handshake: just pass it to the other player
+    p.rtcTokens = p.rtcTokens === undefined ? 80 : p.rtcTokens; if (p.rtcTokens < 1) return; p.rtcTokens--;
+    const q = Number.isInteger(m.to) ? room.players.get(m.to) : null;
+    if (!q || q === p || !m.d || typeof m.d !== 'object' || JSON.stringify(m.d).length > 12000) return;
+    send(q, { t: 'rtc', from: p.id, d: m.d });
   } else if (m.t === 'swing') {         // arm swing animation for the others
     if (p.swTokens < 1) return; p.swTokens--;
     broadcast(room, { t: 'swing', id: p.id }, p.id);
@@ -316,7 +358,10 @@ wss.on('connection', ws => {
   ws.on('close', () => {
     conns.delete(p);
     const room = p.room;
-    if (room && room.players.delete(p.id)) { broadcast(room, { t: 'leave', id: p.id }); dropIfUnused(room); }
+    if (room && room.players.delete(p.id)) {
+      if (room.ents) for (const [id, e] of room.ents) if (e.o === p.id) room.ents.delete(id);
+      broadcast(room, { t: 'leave', id: p.id }); broadcast(room, { t: 'edel', o: p.id }); dropIfUnused(room);
+    }
   });
   ws.on('error', () => {});
 });
@@ -373,3 +418,4 @@ process.on('SIGINT', shutdown);
   console.log(ADMIN_PASSWORD ? 'Admin reset: password required' : 'Admin reset: OPEN to anyone using /?addmode (set ADMIN_PASSWORD to protect it)');
   server.listen(PORT, () => console.log(`Sandbox server running on port ${PORT}`));
 })();
+setInterval(() => { for (const p of conns) p.rtcTokens = Math.min(80, (p.rtcTokens === undefined ? 80 : p.rtcTokens) + 40); }, 1000);
