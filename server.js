@@ -35,6 +35,16 @@ const LOCAL_SAVE_MS = 10000, GH_SAVE_MS = 60000;
 // ---------- rooms / shared world state ----------
 // room: { id, name, pw, resetAt (ms time of the last admin reset), edits: Map("x,y,z" -> ts*16 + block id (0 = broken)), players: Map, timeBase, timeStamp }
 const rooms = new Map();
+// dropped items (the small blocks you get when mining) live on the server so every player sees and can pick up the same ones
+const DROP_ITEMS = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14]), MAX_DROPS = 300, DROP_LIFE = 300000;
+let dropSeq = 0;
+const dropsOf = r => r.drops || (r.drops = new Map());
+function addDrop(room, item, x, y, z) {
+  const d = dropsOf(room);
+  if (d.size >= MAX_DROPS) { const old = d.keys().next().value; d.delete(old); broadcast(room, { t: 'gone', did: old }); }
+  const did = ++dropSeq; d.set(did, { i: item, x, y, z, t: Date.now() });
+  broadcast(room, { t: 'drop', did, i: item, x, y, z });
+}
 let dirtyLocal = false, dirtyGh = false, lastGhPush = 0;
 const sha = x => crypto.createHash('sha256').update(String(x)).digest('hex');
 const roomTime = r => (r.timeBase + (Date.now() - r.timeStamp) / 1000) % CYCLE;
@@ -51,7 +61,7 @@ function loadFromText(text) {
     for (const e of list || []) {
       if (!Array.isArray(e) || (e.length !== 4 && e.length !== 5) || !e.every(Number.isInteger)) continue;
       const ts = e.length === 5 ? e[4] : 0;           // old save files have no timestamps
-      if (e[3] < 0 || e[3] > 14 || ts < 0) continue;
+      if (e[3] < 0 || e[3] > 15 || ts < 0) continue;
       m.set(`${e[0]},${e[1]},${e[2]}`, ts * 16 + e[3]);
     }
   };
@@ -206,7 +216,7 @@ function handle(p, m) {
     if (room.players.size >= MAX_PLAYERS) { send(p, { t: 'err', c: 'full' }); return; }
     p.room = room; p.joinedAt = Date.now();
     p.name = uniqueName(room, cleanName(m.name) || p.name, p.id);
-    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), st: Date.now(), r: room.resetAt, players: [...room.players.values()].map(pub), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
+    send(p, { t: 'welcome', id: p.id, name: p.name, room: { id: room.id, name: room.name }, c: roomTime(room), st: Date.now(), r: room.resetAt, players: [...room.players.values()].map(pub), drops: [...dropsOf(room)].map(([id, d]) => [id, d.i, d.x, d.y, d.z]), admin: ADMIN_PASSWORD ? 'pw' : 'open' });
     sendWorld(p, room);
     room.players.set(p.id, p);
     broadcast(room, { t: 'join', p: pub(p) }, p.id);
@@ -219,11 +229,12 @@ function handle(p, m) {
     const x = num(m.x, -30000, 30000), y = num(m.y, -100, 300), z = num(m.z, -30000, 30000), yaw = num(m.yaw, -100, 100), pitch = num(m.pitch, -2, 2) || 0;
     if (x === null || y === null || z === null || yaw === null) return;
     p.x = x; p.y = y; p.z = z; p.yaw = yaw; p.pitch = pitch;
-    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw, pitch }, p.id);
+    const h = Array.isArray(m.h) && m.h.length === 6 && m.h.every(v => typeof v === 'number' && Math.abs(v) < 8) ? m.h.map(v => Math.round(v * 100) / 100) : undefined;   // VR hands, relative to the feet
+    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw, pitch, h }, p.id);
   } else if (m.t === 'block') {
     if (p.tokens < 1) return;           // rate limit
     p.tokens--;
-    const x = int(m.x, -30000, 30000), y = int(m.y, Y_MIN, Y_MAX), z = int(m.z, -30000, 30000), b = int(m.b, 0, 14);
+    const x = int(m.x, -30000, 30000), y = int(m.y, Y_MIN, Y_MAX), z = int(m.z, -30000, 30000), b = int(m.b, 0, 15);
     if (x === null || y === null || z === null || b === null) return;
     const key = `${x},${y},${z}`;
     if (!room.edits.has(key) && room.edits.size >= MAX_EDITS) return;
@@ -231,9 +242,18 @@ function handle(p, m) {
     room.edits.set(key, ts * 16 + b); markDirty();
     broadcast(room, { t: 'block', x, y, z, b, ts }, p.id);
     send(p, { t: 'a', x, y, z, ts });        // tell the sender the official timestamp of its edit
+    const di = int(m.d, 1, 14);
+    if (b === 0 && di !== null && DROP_ITEMS.has(di)) addDrop(room, di, x, y, z);   // a mined block drops an item for everybody
   } else if (m.t === 'name') {
     const n = uniqueName(room, cleanName(m.name), p.id);
     if (n) { p.name = n; send(p, { t: 'name', id: p.id, name: n }); broadcast(room, { t: 'name', id: p.id, name: n }, p.id); }
+  } else if (m.t === 'pick') {          // somebody walks over a dropped item: the first one wins
+    if (p.pickTokens < 1) return; p.pickTokens--;
+    const did = int(m.did, 1, 1e12), d = did !== null ? dropsOf(room).get(did) : null;
+    if (!d || Math.hypot(p.x - d.x, p.z - d.z) > 8 || Math.abs(p.y - d.y) > 10) return;
+    dropsOf(room).delete(did);
+    send(p, { t: 'got', did, i: d.i });
+    broadcast(room, { t: 'gone', did }, p.id);
   } else if (m.t === 'swing') {         // arm swing animation for the others
     if (p.swTokens < 1) return; p.swTokens--;
     broadcast(room, { t: 'swing', id: p.id }, p.id);
@@ -262,7 +282,7 @@ function handle(p, m) {
       if (p.bkBudget < 1) break;
       if (!Array.isArray(e) || e.length !== 5 || !e.every(Number.isInteger)) continue;
       const [x, y, z, b, ts] = e;
-      if (x < -30000 || x > 30000 || z < -30000 || z > 30000 || y < Y_MIN || y > Y_MAX || b < 0 || b > 14) continue;
+      if (x < -30000 || x > 30000 || z < -30000 || z > 30000 || y < Y_MIN || y > Y_MAX || b < 0 || b > 15) continue;
       if (ts <= 0 || ts > now + 5000 || ts < room.resetAt) continue;          // no future times, nothing from before the last reset
       p.bkBudget--;
       const key = `${x},${y},${z}`, cur = room.edits.get(key);
@@ -276,7 +296,7 @@ function handle(p, m) {
   } else if (m.t === 'reset') {
     if (!p.admin) return;
     console.log(`World reset by ${p.name} in room ${room.name} (${room.edits.size} edits deleted)`);
-    room.edits.clear(); room.resetAt = Date.now(); markDirty();
+    room.edits.clear(); dropsOf(room).clear(); room.resetAt = Date.now(); markDirty();
     broadcast(room, { t: 'reset', r: room.resetAt });
     saveAll(true);
   }
@@ -284,7 +304,7 @@ function handle(p, m) {
 
 wss.on('connection', ws => {
   if (conns.size >= MAX_CONNS) { ws.close(1013, 'server full'); return; }
-  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0, bkTokens: 20, bkBudget: 100000, overrides: 0, hitTokens: 4, swTokens: 8, joinedAt: 0, pitch: 0 };
+  const p = { id: nextId++, ws, name: '', x: 0, y: 20, z: 0, yaw: 0, room: null, tokens: 40, alive: true, admin: false, fails: 0, creates: 0, bkTokens: 20, bkBudget: 100000, overrides: 0, pickTokens: 20, hitTokens: 4, swTokens: 8, joinedAt: 0, pitch: 0 };
   p.name = 'Player' + p.id;
   conns.add(p);
   ws.on('pong', () => { p.alive = true; });
@@ -303,8 +323,9 @@ wss.on('connection', ws => {
 
 // rooms that were created but never used disappear after 2 minutes
 setInterval(() => { for (const r of [...rooms.values()]) if (r.id !== 'main' && !r.players.size && !r.edits.size && Date.now() - (r.born || 0) > 120000) rooms.delete(r.id); }, 30000);
-setInterval(() => { for (const p of conns) { p.tokens = Math.min(40, p.tokens + 40); p.bkTokens = Math.min(20, p.bkTokens + 20); p.hitTokens = Math.min(4, p.hitTokens + 3); p.swTokens = Math.min(8, p.swTokens + 8); } }, 1000);
+setInterval(() => { for (const p of conns) { p.tokens = Math.min(40, p.tokens + 40); p.bkTokens = Math.min(20, p.bkTokens + 20); p.pickTokens = Math.min(20, p.pickTokens + 20); p.hitTokens = Math.min(4, p.hitTokens + 3); p.swTokens = Math.min(8, p.swTokens + 8); } }, 1000);
 setInterval(() => { for (const r of rooms.values()) if (r.players.size) broadcast(r, { t: 'time', c: roomTime(r) }); }, 20000);
+setInterval(() => { const now = Date.now(); for (const r of rooms.values()) for (const [id, d] of dropsOf(r)) if (now - d.t > DROP_LIFE) { dropsOf(r).delete(id); broadcast(r, { t: 'gone', did: id }); } }, 5000);
 // keep connections alive behind proxies and drop dead ones
 setInterval(() => {
   for (const p of [...conns]) { if (!p.alive) p.ws.terminate(); else { p.alive = false; try { p.ws.ping(); } catch (e) {} } }
