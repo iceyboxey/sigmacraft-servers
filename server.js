@@ -188,7 +188,7 @@ function broadcast(room, obj, exceptId) {
   const s = JSON.stringify(obj);
   for (const p of room.players.values()) if (p.id !== exceptId && p.ws.readyState === 1) p.ws.send(s);
 }
-const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch });
+const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, skin: p.skin || null, held: p.held || 0 });
 function roomList() {
   return [...rooms.values()]
     .map(r => ({ id: r.id, name: r.name, n: r.players.size, max: MAX_PLAYERS, lock: !!r.pw }))
@@ -284,6 +284,20 @@ function handle(p, m) {
     if (Math.hypot(p.x - e.x, p.z - e.z) > 12) return;
     const q = room.players.get(e.o); if (!q) return;
     send(q, { t: 'ehit', id: m.id, d: Math.max(1, Math.min(20, d)), kx: Number(m.kx) || 0, kz: Number(m.kz) || 0 });
+  } else if (m.t === 'held') {          // the item in a player's hand
+    const now = Date.now(); if (now - (p.heldT || 0) < 80) return; p.heldT = now;
+    const i = int(m.i, 0, 200); if (i === null) return;
+    p.held = i; broadcast(room, { t: 'held', id: p.id, i }, p.id);
+  } else if (m.t === 'skin') {          // a player's skin: 'blue' (admins only) or their own 64x64 PNG
+    const now = Date.now(); if (now - (p.skinT || 0) < 1500) return; p.skinT = now;
+    let s = m.s === undefined ? null : m.s;
+    if (s === 'blue') { if (!p.admin) s = null; }
+    else if (s !== null) {
+      if (typeof s !== 'string' || s.length > 25000 || !/^data:image\/png;base64,[A-Za-z0-9+\/]+={0,2}$/.test(s)) return;
+      const b = Buffer.from(s.slice(22, 22 + 48), 'base64');
+      if (b.length < 24 || b.toString('latin1', 1, 4) !== 'PNG' || b.readUInt32BE(16) !== 64 || b.readUInt32BE(20) !== 64) return;
+    }
+    p.skin = s; broadcast(room, { t: 'skin', id: p.id, s }, p.id);
   } else if (m.t === 'chat') {          // text chat: everybody in the room sees it
     const now = Date.now(); if (now - (p.chatT || 0) < 700) return; p.chatT = now;
     const text = String(m.text == null ? '' : m.text).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 120);
@@ -291,6 +305,10 @@ function handle(p, m) {
   } else if (m.t === 'died' || m.t === 'alive') {   // so the others can show a player lying on the ground
     const now = Date.now(); if (now - (p.lifeT || 0) < 300) return; p.lifeT = now;
     broadcast(room, { t: m.t, id: p.id }, p.id);
+  } else if (m.t === 'v') {             // voice chat: a short chunk of audio goes to the players nearby
+    p.vTokens = p.vTokens === undefined ? 20 : p.vTokens; if (p.vTokens < 1) return; p.vTokens--;
+    if (typeof m.d !== 'string' || m.d.length > 3000) return;
+    for (const q of room.players.values()) if (q !== p && Math.hypot(q.x - p.x, q.z - p.z) < 120) send(q, { t: 'v', id: p.id, d: m.d });
   } else if (m.t === 'rtc') {           // voice chat handshake: just pass it to the other player
     p.rtcTokens = p.rtcTokens === undefined ? 80 : p.rtcTokens; if (p.rtcTokens < 1) return; p.rtcTokens--;
     const q = Number.isInteger(m.to) ? room.players.get(m.to) : null;
@@ -419,3 +437,4 @@ process.on('SIGINT', shutdown);
   server.listen(PORT, () => console.log(`Sandbox server running on port ${PORT}`));
 })();
 setInterval(() => { for (const p of conns) p.rtcTokens = Math.min(80, (p.rtcTokens === undefined ? 80 : p.rtcTokens) + 40); }, 1000);
+setInterval(() => { for (const p of conns) p.vTokens = Math.min(20, (p.vTokens === undefined ? 20 : p.vTokens) + 14); }, 1000);
