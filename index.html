@@ -118,6 +118,8 @@
   }
   #daytime-bar { width: 100px; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; }
   #daytime-fill { height: 100%; width: 50%; background: #FFD700; border-radius: 4px; }
+  #hungerbar { position: fixed; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; pointer-events: none; font-size: 16px; }
+  body.touch #hungerbar { bottom: 46px; }
   #hpbar { position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: none; }
   .heart { font-size: 22px; }
   #toast {
@@ -217,6 +219,7 @@
   <div id="daytime-bar"><div id="daytime-fill"></div></div>
   <span id="daytime-label" data-i18n="day">Day</span>
 </div>
+<div id="hungerbar"></div>
 <div id="hpbar"></div>
 <div id="warning" data-i18n="warning"></div>
 <div id="info"></div>
@@ -292,7 +295,7 @@
   <div style="font-size:11px;color:#889;margin-top:10px;text-align:center;line-height:1.5">
     <a data-i18n="credit" href="https://sketchfab.com/3d-models/minecraft-steve-cb228dcc137042cc9a3dc588758cc6e9" target="_blank" rel="noopener noreferrer" style="color:#9ab">Player model: "Minecraft - Steve" by Vincent Yanez</a>
     · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" style="color:#9ab">CC BY 4.0</a>
-  <br><a href="https://sketchfab.com/3d-models/minecraft-zombie-45037ec52b6a4444a0981f916d0dbd43" target="_blank" rel="noopener noreferrer" style="color:#9ab">Zombie model: "minecraft zombie" by JoohnElkes</a> · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" style="color:#9ab">CC BY 4.0</a>
+  <br><a href="https://sketchfab.com/3d-models/minecraft-zombie-45037ec52b6a4444a0981f916d0dbd43" target="_blank" rel="noopener noreferrer" style="color:#9ab">Zombie model: "minecraft zombie" by JoohnElkes</a> · <a href="https://sketchfab.com/3d-models/minecraft-grass-block-84938a8f3f8d4a0aa64aaa9c4e4d27d3" target="_blank" rel="noopener noreferrer" style="color:#9ab">Grass texture: "Minecraft Grass Block" by Render at Night</a> · <a href="https://sketchfab.com/3d-models/minecraft-stone-block-3678d5fd71c2413d82b8891282945510" target="_blank" rel="noopener noreferrer" style="color:#9ab">Stone texture: "Minecraft-stone-block" by momo</a> · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" style="color:#9ab">CC BY 4.0</a>
   </div>
   <button id="close-settings" data-i18n="close">✅ Close</button>
 </div>
@@ -428,7 +431,7 @@ scene.add(ambientLight);
 // =====================================================
 // PROCEDURAL TEXTURE ATLAS (16x16 pixel tiles)
 // =====================================================
-const TILE = 16, NT = 60;
+const TILE = 16, NT = 62;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width = TILE * NT; atlasCanvas.height = TILE;
 const actx = atlasCanvas.getContext('2d');
@@ -464,6 +467,13 @@ noiseTile(2, DIRT, 0.15);
 for (let i = 0; i < 14; i++) PX(2, (rnd() * 16) | 0, (rnd() * 16) | 0, 98, 68, 46);
 // 3 stone
 noiseTile(3, [128, 128, 128], 0.1);
+// Stone texture from "Minecraft-stone-block" by momo (https://sketchfab.com/3d-models/minecraft-stone-block-3678d5fd71c2413d82b8891282945510),
+// licensed CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/): 16x16 raw RGB, also used as the base of the ore tiles below.
+(function () {
+  const bin = atob("dHR0dHR0dHR0dHR0aGhoj4+Pj4+Pf39/f39/f39/f39/dHR0dHR0dHR0f39/f39/f39/f39/f39/dHR0dHR0dHR0dHR0dHR0f39/f39/j4+Pj4+Pf39/dHR0dHR0f39/f39/j4+Pj4+Pj4+Pj4+Pj4+Pf39/dHR0dHR0dHR0aGhodHR0f39/f39/j4+Pj4+Pf39/dHR0dHR0dHR0dHR0dHR0dHR0dHR0j4+Pj4+PdHR0dHR0dHR0dHR0dHR0f39/aGhof39/f39/f39/dHR0f39/f39/f39/j4+Pj4+Pf39/f39/f39/j4+Pj4+PaGhof39/f39/j4+PdHR0dHR0j4+Pj4+PdHR0aGhodHR0j4+Pj4+Pj4+Pf39/f39/f39/f39/dHR0dHR0dHR0dHR0dHR0dHR0f39/aGhof39/f39/dHR0dHR0dHR0j4+Pf39/f39/j4+Pj4+PaGhoj4+PdHR0f39/f39/f39/j4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pf39/f39/f39/dHR0dHR0dHR0dHR0dHR0dHR0aGhodHR0dHR0dHR0dHR0f39/f39/j4+Pj4+Pf39/gICAf39/dHR0j4+Pj4+Pf39/f39/f39/f39/j4+Pj4+Pj4+PaGhodHR0dHR0f39/f39/f39/dHR0dHR0dHR0f39/aGhof39/f39/dHR0dHR0aGhof39/f39/j4+Pj4+PdHR0dHR0dHR0dHR0dHR0dHR0dHR0j4+Pj4+Pj4+Pj4+Pj4+PaGhof39/j4+Pf39/f39/f39/aGhof39/j4+Pf39/f39/dHR0dHR0dHR0dHR0dHR0f39/f39/aGhodHR0dHR0aGhodHR0dHR0dHR0j4+PdHR0f39/f39/f39/j4+Pf39/f39/f39/f39/j4+Pj4+Pj4+Pj4+PdHR0dHR0dHR0j4+Pj4+Pj4+PaGhof39/f39/dHR0f39/dHR0dHR0dHR0dHR0f39/j4+Pj4+PaGhoj4+Pf39/dHR0dHR0dHR0dHR0f39/"), id = actx.createImageData(TILE, TILE);
+  for (let i = 0; i < TILE * TILE; i++) { id.data[i * 4] = bin.charCodeAt(i * 3); id.data[i * 4 + 1] = bin.charCodeAt(i * 3 + 1); id.data[i * 4 + 2] = bin.charCodeAt(i * 3 + 2); id.data[i * 4 + 3] = 255; }
+  actx.putImageData(id, 3 * TILE, 0);
+})();
 for (let i = 0; i < 26; i++) { const g = 88 + rnd() * 20; PX(3, (rnd() * 16) | 0, (rnd() * 16) | 0, g, g, g); }
 // 4 sand
 noiseTile(4, [226, 209, 142], 0.05);
@@ -575,8 +585,7 @@ for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const k = 0.9 + rnd(
 for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const k = 0.85 + rnd() * 0.3, hot = ((x * 3 + y * 5) % 11) < 3; PX(20, x, y, (hot ? 255 : 225) * k, (hot ? 190 : 90) * k, (hot ? 40 : 10) * k); }
 // 21 coal ore, 22 iron ore, 23 gold ore
 for (const [tile, col] of [[21, [30, 30, 34]], [22, [214, 170, 140]], [23, [250, 215, 60]]]) {
-  noiseTile(tile, [128, 128, 128], 0.1);
-  for (let i = 0; i < 26; i++) { const g = 88 + rnd() * 20; PX(tile, (rnd() * 16) | 0, (rnd() * 16) | 0, g, g, g); }
+  actx.drawImage(atlasCanvas, 3 * TILE, 0, TILE, TILE, tile * TILE, 0, TILE, TILE);               // stone as the base
   for (let i = 0; i < 7; i++) { const bx = 1 + ((rnd() * 13) | 0), by = 1 + ((rnd() * 13) | 0); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (rnd() < 0.85) { const k = 0.85 + rnd() * 0.3; PX(tile, bx + dx, by + dy, col[0] * k, col[1] * k, col[2] * k); } }
 }
 // 24 crafting table top, 25 side
@@ -604,6 +613,8 @@ for (const [tile, c] of [[35, [226, 220, 216]], [36, [250, 214, 56]]]) { RECT(ti
 BLOB(37, 7.5, 8.5, 5.5, 3.8, [200, 70, 70]); BLOB(37, 6, 8, 2, 1.5, [236, 150, 150]);              // 37 raw beef
 BLOB(38, 7.5, 8.5, 5.5, 3.8, [130, 72, 40]); BLOB(38, 6, 8, 2, 1.5, [170, 110, 66]);                // 38 cooked beef
 BLOB(39, 7.5, 8.5, 5.5, 3.8, [240, 150, 150]); BLOB(39, 9, 8, 2, 1.5, [255, 205, 205]);             // 39 raw pork
+BLOB(60, 7.5, 8.5, 5.5, 3.8, [214, 112, 122]); BLOB(60, 6, 8, 2, 1.5, [244, 176, 182]); BLOB(60, 10, 9, 1.5, 1.2, [250, 240, 230]);       // 60 raw mutton
+BLOB(61, 7.5, 8.5, 5.5, 3.8, [122, 70, 44]); BLOB(61, 6, 8, 2, 1.5, [166, 108, 70]); BLOB(61, 10, 9, 1.5, 1.2, [235, 225, 210]);          // 61 cooked mutton
 BLOB(40, 7.5, 8.5, 5.5, 3.8, [176, 98, 52]); BLOB(40, 9, 8, 2, 1.5, [210, 140, 86]);                // 40 cooked pork
 BLOB(41, 7, 7, 3.6, 4, [244, 190, 170]); LN(41, 9, 10, 13, 14, 2, [240, 240, 236]);                 // 41 raw chicken
 BLOB(42, 7, 7, 3.6, 4, [186, 118, 56]); LN(42, 9, 10, 13, 14, 2, [240, 240, 236]);                  // 42 cooked chicken
@@ -621,6 +632,18 @@ for (const [tile, liquid] of [[57, null], [58, [40, 110, 220]], [59, [255, 150, 
   if (liquid) RECT(tile, 5, 5, 10, 7, liquid);
 }
 
+// Grass block textures (grass top, grass side, dirt) from "Minecraft Grass Block" by Render at Night
+// (https://sketchfab.com/3d-models/minecraft-grass-block-84938a8f3f8d4a0aa64aaa9c4e4d27d3), licensed CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+// Three 16x16 tiles of raw RGB, drawn straight into the atlas (tiles 0, 1 and 2).
+(function () {
+  const bin = atob("P2EwR242QWMxQWQxTng7SG83Rms1Rms1RGgzW4xFO1stUXs9P2AwRWk0Rms1S3M5Rms1Rms1XIxFO1osVYNBUX0+Rms1Rms1PFwuRms1Rms1QGMxRms1S3M5Rms1OlgsPV4vUHs9OFYrRms1PFstSXA3PV4vXY5GTXY6Rms1UHs9Rms1THU6QWMxUHs9U38/WYhDSG43PV4vQmUyRms1RWo0P2EwOlksQmUyRms1QmUyPFstTHQ5T3k8OlgsSG43P2AwUn4/QGIwTnc7Rms1P2AwRms1QWQxSG43Rms1Q2YzO1osVYNBPV0uPFstQmUySnE4S3M5SG43T3k8Pl8vV4VCRGgzRms1XIxFOlgsUHo8PmAvRGg0QWMxRms1RGg0SG43Pl8vV4ZCQ2czQ2YzRms1UXw9PV0uQGMxRms1Rms1UXs9RGgzVYNBRGg0PV4vUHo8SnE4V4VCUXw9Un4+PV4vUn4/Rms1VYNBUXw9Pl8vRms1P2EwRms1S3M5PFwuRms1QGMxS3M5QmUyRms1O1stTng7P2AwRms1Un4/QGMxPV4vRGg0THU6PV0uRms1PFwuSnI4T3k8RWk0Rms1PmAvQmUyPV0uP2AwQGMxVoRBUn4+RWo0UHo8Rms1RGg0SXA3SG83OVgrT3k8PV4vRms1Rms1SnE4QGMxRms1Rms1Rms1OVgrRms1RGgzRms1TXY7PmAvUn4/PmAvUn4+U38/QWMxUn4+WYhDOFUqPV0uUHo8UX0+PFwuQWMxQ2czOFYrP2EwQmUySG43Rms1SXA3PFstRms1PV0uPmAvRms1SG43Rms1QmUyUHo8PFstTnc7Q2czPFstP2AwQWQxQWQxRms1RWk0R2w1THQ5UHs9Un4/QGMxOVcrPV0uV4VCR202Q2YzTHU6Rms1Rms1PV0uSXA3Pl8vPV0uUXs9T3k8Rms1XY5GQ2YzQGMxQmUyR2w1XY5GRms1QGIwQGIwRms1PV0uRms1S3M5Rms1QmUyQGMxQWQxUHo8NVIoQ2czOVgrPV0uMUslRGgzPV0uQGMxPV0uOVgrOVgrQGMxN1QpQGMxNVIoOVgrN1QpQGMxNVEoQGMxNVIoQGMxOFYqQGMxOlcyRGc7MUwlQGMxRzEhRGgzN1QwQGMxNVIoQGMxRzEhOlcyLkUnRzEhQmU6OVgrPV0uQWI4RzEhN1QpRzEhQGMxMk0sRGgzRzEhOVgrYUQuRzEhRzEhYUQuRzEhNlIpRzEhMEolRzEhRzEhRzEhN1UqRzEhRzEhVlZWRzEhYUQuRzEheFY7YUQuVlZWRzEhRzEhRzEhYUQuYUQueFY7RzEhlGpKeFY7YUQueFY7lGpKYUQuYUQuYUQuRzEhYUQuYUQuRzEhRzEhRzEheFY7YUQueFY7eFY7RzEhYUQueFY7YUQueFY7YUQulGpKlGpKYUQulGpKlGpKYUQuYUQubGxsYUQuYUQuYUQulGpKeFY7eFY7YUQuYUQueFY7eFY7RzEheFY7YUQuYUQueFY7eFY7lGpKlGpKYUQuYUQuYUQuRzEhYUQuYUQuYUQueFY7eFY7YUQuRzEhYUQueFY7YUQueFY7YUQuYUQueFY7eFY7YUQulGpKlGpKYUQuYUQuYUQuYUQuYUQuRzEhRzEhYUQuYUQuRzEheFY7YUQuYUQubGxseFY7eFY7RzEhlGpKlGpKRzEheFY7lGpKYUQulGpKlGpKYUQueFY7YUQuRzEhYUQueFY7RzEhYUQueFY7eFY7VlZWeFY7YUQulGpKeFY7eFY7YUQuYUQueFY7lGpKlGpKYUQuYUQuYUQuYUQuYUQuYUQuYUQulGpKeFY7eFY7YUQueFY7RzEhYUQueFY7eFY7lGpKYUQuRzEhlGpKRzEhYUQueFY7eFY7YUQuXUY2YUQuYUQueFY7YUQueFY7eFY7YUQuYUQueFY7YUQulGpKlGpKRzEhYUQuRzEhYUQulGpKRzEhYUQueFY7RzEhYUQueFY7eFY7YUQuYUQueFY7eFY7YUQubGxsYUQueFY7eFY7lGpKYUQueFY7eFY7YUQulGpKeFY7eFY7YUQubGxsYUQueFY7eFY7YUQuYUQueFY7eFY7YUQuRzEheFY7YUQuRzEhlGpKYUQuRzEhYUQuRzEhlGpKlGpKYUQueFY7YUQuYUQueFY7eFY7YUQueFY7YUQuYUQuXUY2YUQueFY7eFY7YUQuRzEhlGpKRzEhYUQulGpKeFY7eFY7YUQuRzEheFY7YUQueFY7eFY7lGpKYUQuYUQuYUQuYUQuYUQuYUQuYUQulGpKlGpKeFY7YUQuYUQueFY7eFY7lGpKYUQueFY7VlZWeFY7eFY7YUQuRzEheFY7YUQuRzEhYUQueFY7YUQulGpKlGpKYUQulGpKeFY7RzEhlGpKlGpKRzEheFY7eFY7bGxsYUQuYUQueFY7RzEhYUQuYUQuRzEhRzEhYUQuYUQuYUQuYUQuYUQulGpKlGpKYUQueFY7eFY7YUQuYUQueFY7YUQueFY7YUQuRzEhYUQueFY7eFY7YUQuYUQuYUQuRzEhYUQuYUQuYUQulGpKlGpKeFY7eFY7YUQuYUQueFY7RzEheFY7eFY7YUQuYUQueFY7eFY7lGpKYUQuYUQuYUQubGxsYUQuYUQulGpKlGpKYUQulGpKlGpKYUQueFY7YUQueFY7YUQuRzEheFY7eFY7YUQueFY7RzEhRzEhRzEhYUQuYUQuRzEhYUQuYUQuYUQulGpKeFY7YUQueFY7lGpKRzEheFY7YUQuYUQuRzEhRzEhRzEhVlZWYUQueFY7RzEhYUQulGpKlGpKYUQuYUQuYUQuYUQuYUQuYUQuYUQulGpKeFY7eFY7YUQueFY7RzEhYUQueFY7eFY7lGpKYUQuRzEhlGpKRzEhYUQueFY7eFY7YUQuXUY2YUQuYUQueFY7YUQueFY7eFY7YUQuYUQueFY7YUQulGpKlGpKRzEhYUQuRzEhYUQulGpKRzEhYUQueFY7RzEhYUQueFY7eFY7YUQuYUQueFY7eFY7YUQubGxsYUQueFY7eFY7lGpKYUQueFY7"), id = actx.createImageData(TILE, TILE);
+  for (let t = 0; t < 3; t++) {
+    for (let i = 0; i < TILE * TILE; i++) {
+      id.data[i * 4] = bin.charCodeAt(t * 768 + i * 3); id.data[i * 4 + 1] = bin.charCodeAt(t * 768 + i * 3 + 1); id.data[i * 4 + 2] = bin.charCodeAt(t * 768 + i * 3 + 2); id.data[i * 4 + 3] = 255;
+    }
+    actx.putImageData(id, t * TILE, 0);
+  }
+})();
 const atlasTex = new THREE.CanvasTexture(atlasCanvas);
 atlasTex.magFilter = atlasTex.minFilter = THREE.NearestFilter;
 atlasTex.generateMipmaps = false;
@@ -667,7 +690,8 @@ const ITEMDEF = [
   [118, 48, 'Wooden axe', 'Holzaxt'], [119, 49, 'Stone axe', 'Steinaxt'], [120, 50, 'Iron axe', 'Eisenaxt'],
   [121, 51, 'Wooden shovel', 'Holzschaufel'], [122, 52, 'Stone shovel', 'Steinschaufel'], [123, 53, 'Iron shovel', 'Eisenschaufel'],
   [124, 54, 'Wooden sword', 'Holzschwert'], [125, 55, 'Stone sword', 'Steinschwert'], [126, 56, 'Iron sword', 'Eisenschwert'],
-  [127, 57, 'Bucket', 'Eimer'], [128, 58, 'Water bucket', 'Wassereimer'], [129, 59, 'Lava bucket', 'Lavaeimer']
+  [127, 57, 'Bucket', 'Eimer'], [128, 58, 'Water bucket', 'Wassereimer'], [129, 59, 'Lava bucket', 'Lavaeimer'],
+  [130, 60, 'Raw mutton', 'Rohes Hammelfleisch'], [131, 61, 'Cooked mutton', 'Gebratenes Hammelfleisch']
 ];
 const ITEMS = {};
 const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'Stein'], 4: ['Sand', 'Sand'], 5: ['Wood', 'Holz'], 6: ['Snow', 'Schnee'], 7: ['Brick', 'Ziegel'], 8: ['Planks', 'Bretter'], 9: ['Leaves', 'Laub'],
@@ -676,7 +700,7 @@ const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'S
 for (const id in BLOCK_NAMES) ITEMS[id] = { en: BLOCK_NAMES[id][0], de: BLOCK_NAMES[id][1] };
 for (const [id, tile, en, de] of ITEMDEF) { BLOCKS[id] = { faces: [tile, tile, tile, tile, tile, tile], icon: tile }; ITEMS[id] = { en, de }; }
 const iname = id => (ITEMS[id] && ITEMS[id][lang]) || ('#' + id);
-const FOOD = { 100: 2, 101: 1, 102: 1, 107: 1, 108: 4, 109: 1, 110: 3, 111: 1, 112: 3 };      // hearts healed
+const FOOD = { 100: 5, 101: 4, 102: 3, 107: 3, 108: 8, 109: 3, 110: 8, 111: 2, 112: 6, 130: 3, 131: 7 };      // hunger points restored (the bar holds 20)
 const MAX_BLOCK = 63;
 // how hard each block is to break, and which tool is fast on it (min = lowest tool tier that makes it drop something)
 const BLOCK_INFO = { 1: { h: 0.6, t: 'shovel' }, 2: { h: 0.5, t: 'shovel' }, 3: { h: 3, t: 'pick', min: 1 }, 4: { h: 0.5, t: 'shovel' }, 5: { h: 2, t: 'axe' }, 6: { h: 0.3, t: 'shovel' },
@@ -689,7 +713,7 @@ const isDoorId = id => id >= 10 && id <= 13;
 const isSolidId = id => id !== 0 && id !== 12 && id !== 13 && id !== 16 && id !== 17;      // open doors and liquids can be walked through
 const isLiquid = id => id === 16 || id === 17;
 // ---------- Inventory: everything you mine drops as a small block; picking it up fills the corner panel ----------
-const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129];
+const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131];
 const inv = {}; for (const i of ITEM_IDS) inv[i] = 0;
 try {
   const sv = JSON.parse(localStorage.getItem('sbx_inv') || '{}');
@@ -1294,6 +1318,16 @@ function updateHud(force) {
   const fill = Math.round(dayTG * 100);
   if (fill !== lastFill || force) { el('daytime-fill').style.width = fill + '%'; lastFill = fill; }
 }
+let hunger = 20, hungerT = 0, starveT = 0;
+try { const h = parseFloat(localStorage.getItem('sbx_hunger')); if (Number.isFinite(h)) hunger = Math.max(0, Math.min(20, h)); } catch (e) {}
+function updateHungerBar() {
+  vrDirty = true;
+  const hb = el('hungerbar'); hb.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const v = hunger - i * 2, h = document.createElement('span');
+    h.textContent = '🍗'; h.style.opacity = v >= 2 ? 1 : v >= 1 ? 0.6 : 0.22; if (v < 1) h.style.filter = 'grayscale(1)'; hb.appendChild(h);
+  }
+}
 function updateHpBar() {
   vrDirty = true;
   const hp = el('hpbar'); hp.innerHTML = '';
@@ -1324,6 +1358,7 @@ function takeDamage(by) {
   }
 }
 function restartGame() {
+  hunger = 20; updateHungerBar();
   player.hp = player.maxHp; player.alive = true; player.invincible = 0; netSend({ t: 'alive' });
   for (let i = monsters.length - 1; i >= 0; i--) removeMonster(i);
   if (netState !== 'on') cycleTime = 0;     // online, the time of day belongs to the server
@@ -1378,6 +1413,62 @@ function buildMonster(x, y, z) {
   monsters.push(m);
   return m;
 }
+function buildSheep(x, y, z) {
+  const g = new THREE.Group();
+  const wool = new THREE.MeshLambertMaterial({ color: 0xf0f0f0, emissive: 0x2a2a2a }), skin = new THREE.MeshLambertMaterial({ color: 0xd9c7ac, emissive: 0x1e1a14 }), dark = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const add = (geo, mat, px, py, pz, parent) => { const me = new THREE.Mesh(geo, mat); me.position.set(px, py, pz); me.castShadow = true; (parent || g).add(me); return me; };
+  add(SHEEP_BODY, wool, 0, 0.85, 0); add(SHEEP_HEAD, skin, 0, 1.12, 0.62); add(SHEEP_WOOLHEAD, wool, 0, 1.3, 0.52);
+  add(SHEEP_EYE, dark, -0.11, 1.15, 0.84); add(SHEEP_EYE, dark, 0.11, 1.15, 0.84);
+  const legL = new THREE.Group(), legR = new THREE.Group();
+  legL.position.set(-0.22, 0.55, 0); legR.position.set(0.22, 0.55, 0); g.add(legL); g.add(legR);
+  for (const gr of [legL, legR]) { add(SHEEP_LEG, skin, 0, -0.25, 0.32, gr); add(SHEEP_LEG, skin, 0, -0.25, -0.32, gr); }
+  g.position.set(x, y, z); scene.add(g);
+  const m = { mesh: g, pos: g.position, vel: new THREE.Vector3(), hw: 0.45, h: 1.2, hp: 3, kb: 0, phase: Math.random() * 6, legL, legR, id: '', net: null, nt: 0, kind: 2, wait: Math.random() * 3, moving: false, ang: 0 };
+  g.traverse(o => { o.userData.m = m; });
+  monsters.push(m);
+  return m;
+}
+const SHEEP_BODY = new THREE.BoxGeometry(0.8, 0.7, 1.1), SHEEP_HEAD = new THREE.BoxGeometry(0.34, 0.34, 0.36), SHEEP_WOOLHEAD = new THREE.BoxGeometry(0.4, 0.2, 0.4),
+      SHEEP_EYE = new THREE.BoxGeometry(0.07, 0.07, 0.03), SHEEP_LEG = new THREE.BoxGeometry(0.17, 0.5, 0.17);
+let sheepTimer = 3;
+function trySpawnSheep() {
+  let own = 0; for (const q of monsters) if (q.kind === 2 && !q.net) own++;
+  if (own >= 5) return;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const ang = Math.random() * Math.PI * 2, dist = 12 + Math.random() * 22;
+    const x = player.pos.x + Math.cos(ang) * dist, z = player.pos.z + Math.sin(ang) * dist;
+    const top = columnTop(Math.round(x), Math.round(z));
+    if (!top || top.id !== 1) continue;                                                       // sheep live on grass
+    const m = buildSheep(x, top.y + 0.5, z); m.id = 's' + (myId || 0) + '_' + (++entNet.mseq);
+    return;
+  }
+}
+function updateSheep(m, i, dt) {
+  const p = m.pos, dx = player.pos.x - p.x, dz = player.pos.z - p.z, d = Math.hypot(dx, dz);
+  if (d > 110 || (m.net && performance.now() - m.nt > 2000)) { removeMonster(i); return; }
+  if (m.net) {
+    const k = Math.min(1, dt * 10), mv = Math.hypot(m.tx - p.x, m.tz - p.z);
+    p.x += (m.tx - p.x) * k; p.y += (m.ty - p.y) * k; p.z += (m.tz - p.z) * k; m.mesh.rotation.y = m.tyaw;
+    if (mv > 0.03) m.phase += dt * 6;
+    m.legL.rotation.x = Math.sin(m.phase) * 0.5; m.legR.rotation.x = -Math.sin(m.phase) * 0.5; return;
+  }
+  if (m.kb > 0) { m.kb -= dt; m.vel.x *= 0.92; m.vel.z *= 0.92; }
+  else {
+    m.wait -= dt;
+    if (m.wait <= 0) { if (m.moving) { m.moving = false; m.wait = 1.5 + Math.random() * 3; } else { m.moving = true; m.wait = 1.5 + Math.random() * 2.5; m.ang = Math.random() * Math.PI * 2; } }
+    if (m.moving) { m.vel.x = Math.sin(m.ang) * 1.0; m.vel.z = Math.cos(m.ang) * 1.0; m.mesh.rotation.y = m.ang; } else { m.vel.x = 0; m.vel.z = 0; }
+  }
+  m.vel.y = Math.max(m.vel.y - 15 * dt, -40);
+  const r = moveEntity(m, dt);
+  if ((r.x || r.z) && r.ground) { if (m.moving) m.vel.y = 5.6; }                                   // hop over a one-block step
+  if (m.moving || m.kb > 0) m.phase += dt * 6;
+  m.legL.rotation.x = Math.sin(m.phase) * 0.5 * (m.moving ? 1 : 0.2); m.legR.rotation.x = -m.legL.rotation.x;
+}
+function dropMeat(m) {                                              // a dead sheep drops raw mutton for everybody to see
+  const n = 1 + (Math.random() < 0.5 ? 1 : 0), x = m.pos.x, y = m.pos.y + 0.5, z = m.pos.z;
+  if (netState === 'on') netSend({ t: 'mobdrop', i: 130, n, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
+  else spawnDrop(x, y, z, 130, 0, n);
+}
 function createMonster() {
   for (let attempt = 0; attempt < 10; attempt++) {
     const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 10;
@@ -1392,6 +1483,10 @@ function removeMonster(i) { scene.remove(monsters[i].mesh); monsters.splice(i, 1
 const corpses = [];
 function killMonster(m) {                                         // it dies: falls over to the side, then disappears
   const i = monsters.indexOf(m); if (i < 0) return;
+  if (!m.net) {
+    if (m.kind === 2) dropMeat(m);
+    if (netState === 'on') entNet.dead.push([m.id, m.kind || 1, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.mesh.rotation.y), 0]);   // tell the others it died
+  }
   monsters.splice(i, 1); corpses.push({ g: m.mesh, t: 0, y: m.mesh.position.y });
 }
 function updateCorpses(dt) {
@@ -1404,15 +1499,14 @@ function updateCorpses(dt) {
 }
 
 function updateMonsters(dt) {
-  if (!isNight || !monstersEnabled) {
-    for (let i = monsters.length - 1; i >= 0; i--) removeMonster(i);
-    setWarn(false); return;
-  }
-  monsterTimer += dt;
-  if (monsterTimer > 4) { monsterTimer = 0; if (monsters.filter(q => !q.net).length < 10) createMonster(); }
+  const zombies = isNight && monstersEnabled;
+  if (!zombies) { for (let i = monsters.length - 1; i >= 0; i--) if (monsters[i].kind !== 2) removeMonster(i); }
+  if (zombies) { monsterTimer += dt; if (monsterTimer > 4) { monsterTimer = 0; if (monsters.filter(q => !q.net && q.kind !== 2).length < 10) createMonster(); } }
+  sheepTimer += dt; if (sheepTimer > 6) { sheepTimer = 0; trySpawnSheep(); }
   let near = false;
   for (let i = monsters.length - 1; i >= 0; i--) {
     const m = monsters[i], p = m.pos;
+    if (m.kind === 2) { updateSheep(m, i, dt); continue; }
     const dx = player.pos.x - p.x, dz = player.pos.z - p.z, d = Math.hypot(dx, dz);
     if (d > 70 || (m.net && performance.now() - m.nt > 2000)) { removeMonster(i); continue; }
     if (m.net) {                                                       // somebody else simulates this one: just follow their position
@@ -1435,7 +1529,7 @@ function updateMonsters(dt) {
     if (d < 1.0 && Math.abs(p.y - player.pos.y) < 1.7) takeDamage();
     if (d < 10) near = true;
   }
-  setWarn(near);
+  setWarn(zombies && near);
 }
 
 // =====================================================
@@ -1567,14 +1661,15 @@ function onHurt(m) {                              // someone hit me
 // ---------- shared villagers and monsters ----------
 // Whoever sees an entity first simulates it and sends its position 8x per second; the server keeps one owner per entity,
 // everybody else just follows ("net" = id of the owner). If the owner goes quiet for 3 s somebody else takes over.
-const entNet = { t: 0, mseq: 0, hadMon: false };
+const entNet = { t: 0, mseq: 0, hadMon: false, dead: [] };
 const r2 = v => Math.round(v * 100) / 100;
 function netEntsTick(dt) {
   if (netState !== 'on') return;
   entNet.t += dt; if (entNet.t < 0.125) return; entNet.t = 0;
   const l = []; let nm = 0;
   for (const vl of villagers) { if (vl.net || l.length >= 30) continue; l.push([vl.id, 0, r2(vl.x), r2(vl.v.L + 0.5), r2(vl.z), r2(vl.ang)]); }
-  for (const m of monsters) if (!m.net) { l.push([m.id, 1, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.mesh.rotation.y), m.hp]); nm++; }
+  for (const m of monsters) if (!m.net) { l.push([m.id, m.kind || 1, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.mesh.rotation.y), m.hp]); nm++; }
+  if (entNet.dead.length) { for (const e of entNet.dead) l.push(e); entNet.dead = []; nm++; }
   if (!l.length && !entNet.hadMon) return;
   entNet.hadMon = nm > 0; netSend({ t: 'ents', l });
 }
@@ -1588,11 +1683,16 @@ function onEnts(m) {
     else {
       seen.add(id);
       let mo = monsters.find(q => q.id === id);
-      if (!mo) { if (!isNight || !monstersEnabled || Math.hypot(x - player.pos.x, z - player.pos.z) > 80) continue; mo = buildMonster(x, y, z); mo.id = id; }
+      if (hp <= 0) { if (mo && mo.net) killMonster(mo); continue; }                      // the owner says it died
+      if (!mo) {
+        if (k === 2) { if (Math.hypot(x - player.pos.x, z - player.pos.z) > 100) continue; mo = buildSheep(x, y, z); }
+        else { if (!isNight || !monstersEnabled || Math.hypot(x - player.pos.x, z - player.pos.z) > 80) continue; mo = buildMonster(x, y, z); }
+        mo.id = id;
+      }
       mo.net = o; mo.nt = now; mo.tx = x; mo.ty = y; mo.tz = z; mo.tyaw = yaw; mo.hp = Number.isFinite(hp) ? hp : mo.hp;
     }
   }
-  for (let i = monsters.length - 1; i >= 0; i--) if (monsters[i].net === o && !seen.has(monsters[i].id)) { if (Math.hypot(monsters[i].pos.x - player.pos.x, monsters[i].pos.z - player.pos.z) < 45) killMonster(monsters[i]); else removeMonster(i); }   // it died (or is gone)
+  for (let i = monsters.length - 1; i >= 0; i--) if (monsters[i].net === o && !seen.has(monsters[i].id)) removeMonster(i);   // gone (it died: that was already announced with hp 0)
 }
 function onEntOwner(m) {                                         // the server says somebody else already simulates these
   const now = performance.now();
@@ -1762,7 +1862,7 @@ const RECIPES = [
   recipe(121, 1, { 8: 1, 103: 2 }, 'table'), recipe(122, 1, { 3: 1, 103: 2 }, 'table'), recipe(123, 1, { 105: 1, 103: 2 }, 'table'),
   recipe(124, 1, { 8: 2, 103: 1 }, 'table'), recipe(125, 1, { 3: 2, 103: 1 }, 'table'), recipe(126, 1, { 105: 2, 103: 1 }, 'table'),
   recipe(105, 1, { 19: 1 }, 'furnace', true), recipe(106, 1, { 20: 1 }, 'furnace', true), recipe(23, 1, { 4: 1 }, 'furnace', true), recipe(7, 1, { 2: 2 }, 'furnace', true),
-  recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true)
+  recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true), recipe(131, 1, { 130: 1 }, 'furnace', true)
 ];
 function stationNear(kind) {
   const id = kind === 'table' ? 21 : 22, px = Math.round(player.pos.x), py = Math.round(player.pos.y + 0.5), pz = Math.round(player.pos.z);
@@ -1814,7 +1914,7 @@ el('trash-btn').addEventListener('click', () => { if (selectedType) trashId(sele
 
 // ---------- messages, chests and food ----------
 let toastT = null;
-function toast(msg) { const e = el('toast'); e.textContent = msg; e.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { e.style.display = 'none'; }, 3200); }
+function toast(msg) { if (typeof vr !== 'undefined' && xrActive) { vr.msg = String(msg).slice(0, 60); vr.msgT = 4; vrDirty = true; } const e = el('toast'); e.textContent = msg; e.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { e.style.display = 'none'; }, 3200); }
 const openedChests = new Set();
 try { for (const k of JSON.parse(localStorage.getItem('sbx_chests') || '[]')) openedChests.add(String(k)); } catch (e) {}
 function chestLoot(x, y, z) {                                   // same chest = same loot for everyone
@@ -1839,8 +1939,9 @@ function openChest(x, y, z) {
 function eatSelected() {
   const heal = FOOD[selectedType];
   if (!heal || inv[selectedType] < 1) return false;
-  if (player.hp >= player.maxHp) { toast(t('full_hp')); return true; }
-  player.hp = Math.min(player.maxHp, player.hp + heal); updateHpBar();
+  if (hunger >= 20) { toast('You are not hungry'); return true; }
+  hunger = Math.min(20, hunger + heal); updateHungerBar();
+  toast('😋 ' + iname(selectedType) + ' (+' + heal + ')');
   inv[selectedType]--; renderInv();
   return true;
 }
@@ -2788,7 +2889,7 @@ function netUpdate(dt) {
 }
 
 applyShadows(isCoarse ? 'low' : 'medium');
-renderInv();
+renderInv(); updateHungerBar();
 applyFog(fogFar); applyRenderDist(renderDist);
 setTouchMode(touchMode);
 updateHpBar();
@@ -2836,9 +2937,9 @@ function vrSetupOnce() {
     c.addEventListener('squeezestart', () => { if (VRM.open) vrMenuClick(c); else vrAct(c, 'place'); });
     rig.add(c); vr.ctrls.push(c);
   }
-  vr.cv = document.createElement('canvas'); vr.cv.width = 256; vr.cv.height = 330;
+  vr.cv = document.createElement('canvas'); vr.cv.width = 256; vr.cv.height = 384;
   vr.ctx = vr.cv.getContext('2d'); vr.tex = new THREE.CanvasTexture(vr.cv);
-  vr.panel = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.258), new THREE.MeshBasicMaterial({ map: vr.tex, transparent: true }));
+  vr.panel = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.3), new THREE.MeshBasicMaterial({ map: vr.tex, transparent: true }));
   vr.panel.rotation.x = -1.0; vr.panel.position.set(0, 0.07, 0.09);
   for (const c of vr.ctrls) { const src = c.userData.src; if (src && src.handedness === 'left') c.add(vr.panel); }
   if (!vr.panel.parent && vr.ctrls[0]) vr.ctrls[0].add(vr.panel);
@@ -2846,22 +2947,26 @@ function vrSetupOnce() {
 }
 function drawVrPanel() {
   const c = vr.ctx; if (!c) return; vrDirty = false;
-  c.clearRect(0, 0, 256, 330); c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(0, 0, 256, 330);
+  c.clearRect(0, 0, 256, 384); c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(0, 0, 256, 384);
   c.font = '30px sans-serif'; c.textBaseline = 'middle';
-  for (let i = 0; i < player.maxHp; i++) { c.fillStyle = i < player.hp ? '#ff4040' : '#444'; c.fillText('♥', 12 + i * 46, 30); }
+  for (let i = 0; i < player.maxHp; i++) { c.fillStyle = i < player.hp ? '#ff4040' : '#444'; c.fillText('♥', 12 + i * 46, 26); }
+  c.font = '19px sans-serif';                                                       // hunger, right under the hearts
+  for (let i = 0; i < 10; i++) { const v = hunger - i * 2; c.globalAlpha = v >= 2 ? 1 : v >= 1 ? 0.6 : 0.2; c.fillText('🍗', 6 + i * 24, 60); }
+  c.globalAlpha = 1;
   const all = invList(), COLS = 5, ROWS = 5, si = all.indexOf(selectedType);
   const row0 = Math.max(0, Math.min(Math.floor(si / COLS) - ROWS + 1 < 0 ? 0 : Math.floor(si / COLS) - ROWS + 1, Math.max(0, Math.ceil(all.length / COLS) - ROWS)));
   const list = all.slice(row0 * COLS, (row0 + ROWS) * COLS);
   c.imageSmoothingEnabled = false;
-  if (!all.length) { c.fillStyle = '#cde'; c.font = '20px Arial'; c.fillText(t('inv_empty'), 10, 80, 236); }
+  if (!all.length) { c.fillStyle = '#cde'; c.font = '20px Arial'; c.fillText(t('inv_empty'), 10, 110, 236); }
   list.forEach((id, j) => {
-    const x = 3 + (j % COLS) * 50, y = 58 + ((j / COLS) | 0) * 54;
+    const x = 3 + (j % COLS) * 50, y = 82 + ((j / COLS) | 0) * 54;
     if (id === selectedType) { c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(x, y, 48, 52); c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(x + 1, y + 1, 46, 50); }
     c.drawImage(atlasCanvas, BLOCKS[id].icon * TILE, 0, TILE, TILE, x + 8, y + 3, 32, 32);
     c.font = 'bold 17px Arial'; c.fillStyle = '#fff'; c.textAlign = 'center'; c.fillText(String(inv[id]), x + 24, y + 44, 44); c.textAlign = 'left';
   });
-  if (row0 > 0) { c.fillStyle = '#fff'; c.font = '14px Arial'; c.fillText('▲', 238, 52); }
-  if ((row0 + ROWS) * COLS < all.length) { c.fillStyle = '#fff'; c.font = '14px Arial'; c.fillText('▼', 238, 322); }
+  if (row0 > 0) { c.fillStyle = '#fff'; c.font = '14px Arial'; c.fillText('▲', 238, 76); }
+  if ((row0 + ROWS) * COLS < all.length) { c.fillStyle = '#fff'; c.font = '14px Arial'; c.fillText('▼', 238, 350); }
+  if (vr.msg) { c.fillStyle = '#ffe9a8'; c.font = '15px Arial'; c.fillText(vr.msg, 6, 370, 244); }                        // messages (like "You are not hungry") show here in VR
   vr.tex.needsUpdate = true;
 }
 // ---------- VR menu: a floating panel you click with the controller pointers (crafting + settings) ----------
@@ -3004,6 +3109,7 @@ function vrPreUpdate(dt) {                                       // before movem
   yaw = Math.atan2(-fx / l, -fz / l); pitch = Math.asin(Math.max(-1, Math.min(1, fy / l)));
   vr.f = vr.sd = 0; vr.jump = false;
   vr.snapT -= dt; vr.stickT -= dt;
+  if (vr.msgT > 0) { vr.msgT -= dt; if (vr.msgT <= 0) { vr.msg = ''; vrDirty = true; } }
   for (const c of vr.ctrls) {
     const src = c.userData.src; if (!src) continue;
     const hand = src.handedness || String(c.userData.i), [ax, ay] = vrAxes(src);
@@ -3096,11 +3202,16 @@ function update() {
   }
 
   updateDayNight(dt);
-  saveTimer += dt; if (saveTimer > 2) { saveTimer = 0; savePos(); }
+  saveTimer += dt; if (saveTimer > 2) { saveTimer = 0; savePos(); try { localStorage.setItem('sbx_hunger', String(+hunger.toFixed(1))); } catch (e) {} }
   if (hudTimer > 0.25) { updateHud(false); hudTimer = 0; }
   if (player.invincible > 0) player.invincible -= dt;
   if (attackCooldown > 0) attackCooldown -= dt;
-  if (player.hp < player.maxHp) { player.regen += dt; if (player.regen > 20) { player.regen = 0; player.hp++; updateHpBar(); } }
+  if (player.alive) {
+    hungerT += dt; if (hungerT > 40) { hungerT = 0; if (hunger > 0) { hunger--; updateHungerBar(); } }                 // you get hungry
+    if (hunger <= 0) { starveT += dt; if (starveT > 6) { starveT = 0; if (player.hp > 1) { player.hp--; updateHpBar(); toast('You are starving! Eat something'); } } }
+    else starveT = 0;
+  }
+  if (player.hp < player.maxHp && hunger >= 14) { player.regen += dt; if (player.regen > 12) { player.regen = 0; player.hp++; updateHpBar(); } }   // well fed: hearts come back
   if (attackHeld && attackCooldown <= 0) doAttack();                                        // keep hitting monsters while the button is held
   if (touch.breakHeld) { touch.breakT -= dt; if (touch.breakT <= 0) { doAttack(); touch.breakT = 0.25; } }
 
