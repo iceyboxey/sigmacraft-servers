@@ -288,8 +288,12 @@ function handle(p, m) {
   } else if (m.t === 'mobdrop') {       // an animal died: its meat drops for everybody
     const now = Date.now(); if (now - (p.mobT || 0) < 100) return; p.mobT = now;
     const n = int(m.n, 1, 3), x = Number(m.x), y = Number(m.y), z = Number(m.z);
-    if (m.i !== 130 || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
-    for (let k = 0; k < n; k++) addDrop(room, 130, x, y, z);
+    if ((m.i !== 130 && m.i !== 132) || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
+    for (let k = 0; k < n; k++) addDrop(room, m.i, x, y, z);
+  } else if (m.t === 'ptr') {           // somebody throws a gateway pointer: the others see it fly
+    const now = Date.now(); if (now - (p.ptrT || 0) < 1000) return; p.ptrT = now;
+    const o = {}; for (const k of ['x', 'y', 'z', 'ux', 'uz', 'len', 'gx', 'gz']) { o[k] = Number(m[k]); if (!Number.isFinite(o[k])) return; }
+    broadcast(room, { t: 'ptr', id: p.id, x: o.x, y: o.y, z: o.z, ux: o.ux, uz: o.uz, len: Math.min(70, Math.max(0, o.len)), gx: o.gx, gz: o.gz, arr: m.arr ? 1 : 0 }, p.id);
   } else if (m.t === 'held') {          // the item in a player's hand
     const now = Date.now(); if (now - (p.heldT || 0) < 80) return; p.heldT = now;
     const i = int(m.i, 0, 200); if (i === null) return;
