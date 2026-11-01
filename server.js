@@ -266,24 +266,30 @@ function handle(p, m) {
     if (!Array.isArray(m.l) || m.l.length > 60) return;
     const ents = room.ents || (room.ents = new Map()), out = [], lost = [];
     for (const e of m.l) {
-      if (!Array.isArray(e) || typeof e[0] !== 'string' || !/^[vm][\w.,-]{0,40}$/.test(e[0])) continue;
-      const k = e[1] === 1 ? 1 : 0, x = Number(e[2]), y = Number(e[3]), z = Number(e[4]), yaw = Number(e[5]);
+      if (!Array.isArray(e) || typeof e[0] !== 'string' || !/^[vms][\w.,-]{0,40}$/.test(e[0])) continue;
+      const k = e[1] === 1 || e[1] === 2 ? e[1] : 0, x = Number(e[2]), y = Number(e[3]), z = Number(e[4]), yaw = Number(e[5]);
       if (![x, y, z, yaw].every(Number.isFinite) || Math.abs(x) > 30000 || Math.abs(z) > 30000 || Math.abs(y) > 500) continue;
       const cur = ents.get(e[0]);
       if (cur && cur.o !== p.id && now - cur.t < 3000 && room.players.has(cur.o)) { lost.push([e[0], cur.o]); continue; }
       if (!cur && ents.size >= 400) continue;
-      ents.set(e[0], { o: p.id, t: now, k, x, y, z });
-      out.push([e[0], k, x, y, z, yaw, k === 1 ? (Number(e[6]) || 1) : 0]);
+      const hp = k >= 1 ? (Number.isFinite(Number(e[6])) ? Number(e[6]) : 1) : 0;
+      if (k >= 1 && hp <= 0) ents.delete(e[0]); else ents.set(e[0], { o: p.id, t: now, k, x, y, z });
+      out.push([e[0], k, x, y, z, yaw, hp]);
     }
     if (lost.length) send(p, { t: 'eown', l: lost.filter(l => l[0][0] === 'v') });
     broadcast(room, { t: 'ents', o: p.id, l: out }, p.id);
   } else if (m.t === 'ehit') {          // somebody hit a monster that another player simulates: pass it on to that player
     if (p.hitTokens < 1) return; p.hitTokens--;
     const e = typeof m.id === 'string' && room.ents ? room.ents.get(m.id) : null, d = Number(m.d);
-    if (!e || e.k !== 1 || e.o === p.id || !Number.isFinite(d)) return;
+    if (!e || e.k < 1 || e.o === p.id || !Number.isFinite(d)) return;
     if (Math.hypot(p.x - e.x, p.z - e.z) > 12) return;
     const q = room.players.get(e.o); if (!q) return;
     send(q, { t: 'ehit', id: m.id, d: Math.max(1, Math.min(20, d)), kx: Number(m.kx) || 0, kz: Number(m.kz) || 0 });
+  } else if (m.t === 'mobdrop') {       // an animal died: its meat drops for everybody
+    const now = Date.now(); if (now - (p.mobT || 0) < 100) return; p.mobT = now;
+    const n = int(m.n, 1, 3), x = Number(m.x), y = Number(m.y), z = Number(m.z);
+    if (m.i !== 130 || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
+    for (let k = 0; k < n; k++) addDrop(room, 130, x, y, z);
   } else if (m.t === 'held') {          // the item in a player's hand
     const now = Date.now(); if (now - (p.heldT || 0) < 80) return; p.heldT = now;
     const i = int(m.i, 0, 200); if (i === null) return;
