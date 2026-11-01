@@ -45,7 +45,17 @@
   #chatlog { position: fixed; left: 10px; bottom: 120px; max-width: min(520px, 62vw); z-index: 90; pointer-events: none; font: 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; }
   #chatlog div { background: rgba(0,0,0,0.45); padding: 2px 7px; margin-top: 2px; border-radius: 4px; word-break: break-word; }
   #chatlog b { color: #9fd0ff; }
-  #chat-in { display: none; position: fixed; left: 10px; bottom: 80px; width: min(520px, 70vw); z-index: 200; padding: 8px 10px; font-size: 16px; border-radius: 6px; border: none; outline: 2px solid #fff6; }
+  #chatbar { display: none; position: fixed; left: 10px; bottom: 80px; width: min(560px, 80vw); z-index: 200; gap: 6px; }
+  #chatbar input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 16px; border-radius: 8px; border: none; outline: 2px solid #fff6; }
+  #chatbar button { border: none; border-radius: 8px; padding: 0 14px; font-size: 20px; background: #2d7d46; color: #fff; cursor: pointer; }
+  #chatbar #chat-x { background: #555; }
+  #talk { position: fixed; left: 10px; top: 96px; z-index: 90; pointer-events: none; font: 14px sans-serif; color: #fff; text-shadow: 0 0 3px #000; white-space: pre; }
+  body.touch #chatbar { top: 8px; bottom: auto; left: 8px; right: 8px; width: auto; }
+  body.touch #chatbar input { padding: 12px; }
+  body.touch #chatbar button { padding: 0 18px; font-size: 22px; }
+  body.touch #chatlog { bottom: auto; top: 140px; max-width: 58vw; font-size: 13px; }
+  body.touch #talk { top: 112px; }
+  body.touch #chat-btn, body.touch #mic-btn, body.touch #drop-btn, body.touch #trash-btn { padding: 10px 14px; }
   #chat-btn, #mic-btn { position: fixed; top: 52px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 20px; cursor: pointer; z-index: 100; }
   #chat-btn { left: 220px; } #mic-btn { left: 170px; opacity: 0.6; } #mic-btn.on { opacity: 1; background: rgba(170,30,30,0.85); }
   #craft-btn { position: fixed; top: 10px; left: 70px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 20px; cursor: pointer; z-index: 100; }
@@ -93,6 +103,8 @@
     background: #2a2a3e; color: white; font-size: 14px; cursor: pointer;
   }
   .btn-row button:hover { background: #3a3a5e; }
+  .skin-b { background: #3b4152; color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 7px 8px; font-size: 13px; cursor: pointer; }
+  .skin-b:hover { background: #4a5270; }
   #close-settings {
     display: block; width: 100%; margin-top: 14px; padding: 11px; border-radius: 8px; border: none;
     background: #4CAF50; color: white; font-size: 16px; font-weight: bold; cursor: pointer;
@@ -211,7 +223,8 @@
 <div id="perf">FPS: --</div>
 <button id="settings-btn">⚙️</button>
 <div id="chatlog"></div>
-<input id="chat-in" maxlength="120" placeholder="Chat - Enter to send, Esc to cancel" autocomplete="off">
+<div id="chatbar"><input id="chat-in" maxlength="120" placeholder="Type a message…" enterkeyhint="send" autocomplete="off" autocorrect="off"><button id="chat-send">➤</button><button id="chat-x">✕</button></div>
+<div id="talk"></div>
 <button id="chat-btn">💬</button><button id="mic-btn">🎤</button>
 <button id="craft-btn">🔨</button>
 <button id="drop-btn">⬇</button><button id="trash-btn">🗑</button>
@@ -251,6 +264,19 @@
   <div class="setting-row">
     <label data-i18n="mp_status">🌐 Multiplayer</label>
     <span class="setting-val" id="v-mp" style="flex:1;text-align:right"></span>
+  </div>
+  <div style="border-top:1px solid rgba(255,255,255,0.15);margin-top:6px;padding-top:12px">
+    <div class="setting-row"><label>🎨 Skin</label></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <canvas id="skin-prev" width="8" height="8" style="width:64px;height:64px;image-rendering:pixelated;background:#222;border-radius:6px;flex:0 0 auto"></canvas>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <button id="skin-up" class="skin-b">📁 Upload skin (PNG 64×64)</button>
+        <button id="skin-blue" class="skin-b" style="display:none">💙 Blue skin (admin)</button>
+        <button id="skin-reset" class="skin-b">↺ Default (Steve)</button>
+      </div>
+    </div>
+    <input type="file" id="skin-file" accept="image/png" style="display:none">
+    <div id="skin-msg" style="font-size:12px;color:#aab;margin-top:4px;min-height:14px"></div>
   </div>
   <div id="admin-section" style="display:none;border-top:1px solid rgba(255,255,255,0.15);margin-top:6px;padding-top:14px">
     <div class="setting-row">
@@ -2118,6 +2144,7 @@ function setMyName(n) {
 const adminMode = new URLSearchParams(location.search).has('addmode') || new URLSearchParams(location.search).has('admin');
 let isAdmin = false, adminEnabled = false, admKey = '';
 function admStatus(k) {
+  el('skin-blue').style.display = isAdmin ? 'block' : 'none';
   if (k !== undefined) admKey = k;
   const key = admKey || (adminMode && !adminEnabled && netState === 'on' ? 'adm_off' : '');
   const v = el('v-adm'); if (!v) return;
@@ -2329,7 +2356,7 @@ function netHandle(m) {
       if (srvReset > knownReset) bkDropBefore(srvReset);
       knownReset = Math.max(knownReset, srvReset);
       joinMsg = ''; hideLobby();
-      voiceCloseAll(); for (const q of (m.players || [])) if (q && q.id !== myId) voiceMake(q.id);
+      voiceCloseAll(); if (mySkin && mySkin !== 'blue') sendSkin(); heldLocal.sent = -1;
       try { if (localStorage.getItem('sbx_mic') === '1' && !voice.on) voiceToggle(true); } catch (e) {}
       if (m.name) setMyName(m.name);
       adminEnabled = true; isAdmin = false; admStatus();
@@ -2340,7 +2367,7 @@ function netHandle(m) {
       }
       for (const p of m.players || []) addRemote(p);
       onlineCount = (m.players || []).length + 1; netStatus(); break;
-    case 'join': addRemote(m.p); if (m.p) voiceMake(m.p.id); onlineCount++; netStatus(); break;
+    case 'join': addRemote(m.p); onlineCount++; netStatus(); break;
     case 'leave': removeRemote(m.id); onlineCount = Math.max(1, onlineCount - 1); netStatus(); break;
     case 'name': { if (m.id === myId) { setMyName(m.name); break; } const r = remotes.get(m.id); if (r) setRemoteName(r, m.name); break; }
     case 'edits': bkFromServer(m.e || []); break;
@@ -2350,16 +2377,18 @@ function netHandle(m) {
     case 'gone': { const i = drops.findIndex(d => d.did === m.did); if (i >= 0) removeDrop(i); break; }
     case 'got': { const i = drops.findIndex(d => d.did === m.did); if (i >= 0) removeDrop(i); addItem(+m.i, Math.max(1, Math.min(9999, Math.floor(+m.c) || 1))); break; }
     case 'reset': for (let i = drops.length - 1; i >= 0; i--) if (drops[i].did) removeDrop(i); knownReset = srvReset = m.r || Date.now() + clockOff; bk.clear(); serverSeen.clear(); chunkEdits.clear(); reloadWorld(); bkTouch(); break;
-    case 'admin': isAdmin = !!m.ok; admStatus(m.ok ? 'adm_ok' : 'adm_bad'); break;
+    case 'admin': isAdmin = !!m.ok; admStatus(m.ok ? 'adm_ok' : 'adm_bad'); if (m.ok && mySkin === 'blue') sendSkin(); break;
     case 'pos': { const r = remotes.get(m.id); if (r) { r.tx = m.x; r.ty = m.y; r.tz = m.z; r.yaw = m.yaw; r.pitch = Number.isFinite(m.pitch) ? m.pitch : 0; r.hT = Array.isArray(m.h) && m.h.length === 6 && m.h.every(Number.isFinite) ? m.h : null; if (!r.hT) r.hC = null; } break; }
     case 'block': bkFromServer([[m.x, m.y, m.z, m.b, m.ts]]); break;
     case 'time': if (typeof m.c === 'number') cycleTime = m.c; break;
     case 'swing': { const r = remotes.get(m.id); if (r) r.swing = 0.3; break; }
     case 'hit': { const r = remotes.get(m.id); if (r) r.flash = 0.25; break; }
+    case 'held': { const r = remotes.get(m.id); if (r) setRemoteHeld(r, +m.i || 0); break; }
+    case 'skin': { const r = remotes.get(m.id); if (r) applySkin(r, m.s || null); break; }
     case 'died': { const r = remotes.get(m.id); if (r) { r.dead = true; r.deadT = 0; } break; }
     case 'alive': { const r = remotes.get(m.id); if (r) { r.dead = false; r.deadT = 0; } break; }
     case 'chat': onChat(m); break;
-    case 'rtc': onRtc(m); break;
+    case 'v': onVoice(m); break;
     case 'hurt': onHurt(m); break;
     case 'ents': onEnts(m); break;
     case 'eown': onEntOwner(m); break;
@@ -2418,6 +2447,126 @@ function makeNameSprite(name) {
   sp.scale.set(2, 0.5, 1); sp.renderOrder = 10;
   return sp;
 }
+// ---------- skins ----------
+// A skin is a standard 64x64 Minecraft skin PNG. 'blue' is a built-in skin that only admins can wear. Everybody can upload their own.
+const BLUE_SKIN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAACN0lEQVR4Xu2awUrDQBRF8x1duPRzMwsLgrgQFy5cCS5cKC4EF6IiiGI/ozAfMJJgL81N2pk3EzMZ+g4caKZhOnfSFNL3qsqDWVmXIiYqFQ4ktdTcgANJxUSlwoGklpobcCCpmKhUOJDUUnMDDiQVE5UKB5I6+9y84KnNvkFTB+bP0w3IDV+Rqc2d37sBVVX1xkLeC3X2G9As0n0dD8phYixiA5qFuoejjhwk1mI2gBc+ltk3gDH31nVcdsWJO6hX1u31cb+YaAe75sIJqegG6DfgwG6B3hX3uDhZd4479+TGn4GxicU97cPcWZdiG3Yqv8M/CwF9mFvrUmwXJfHzTx4fWQT0YW6sSxGBZiYC+jDX1qVYf8xTBPRhLq0zV/HW7yP4NjCWKAL6aDcgwXbxY9uE4DGhCOjDnFtnLgQ2529Zv85TBPTBgaTWL31N4FjPZjN5LFIE9GHOrEuxfu5rAsc2LpbroDGJCOjDnFqXYv3U1dBx6Htt4IHXsSKgD37clbr9SJpiG3rgdawIqCiKoiiKoiiKoiiK8t9s1w1b6Q8UnLiDTg2xxD84dAP0G3Bgt0Dvigtseg1wvzdlbUEPAX40csP9AlK5rh9q7tyA+wWkcl0/VCwgN9wvIDW2ryB3bsD9AlJj+wuwgNxwv4BUruuHmjs34H4BqSivD9T494kF5KbXP+CTy+uR/QW5cwMOJJXr+qFiAbnhfgGpXNcPNXduwP0CUrmuHyoWkBt+3JXKdf1Qx8r9C9ze+HRnl/A+AAAAAElFTkSuQmCC";
+const skinCache = new Map();
+const skinSrc = s => s === 'blue' ? BLUE_SKIN : (typeof s === 'string' && s.startsWith('data:image/png;base64,') ? s : null);
+function skinTexture(src, cb) {                                   // the model's texture is stored upside down, so the skin is flipped first
+  if (!src) { cb(STEVE_TEX); return; }
+  if (skinCache.has(src)) { cb(skinCache.get(src)); return; }
+  const img = new Image();
+  img.onload = () => {
+    if (img.width !== 64 || img.height !== 64) { cb(STEVE_TEX); return; }
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; c.translate(0, 64); c.scale(1, -1); c.drawImage(img, 0, 0);
+    const tex = new THREE.CanvasTexture(cv); tex.flipY = false; tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    skinCache.set(src, tex); cb(tex);
+  };
+  img.onerror = () => cb(STEVE_TEX);
+  img.src = src;
+}
+function applySkin(r, s) {
+  r.skinKey = s || null; const key = r.skinKey;
+  skinTexture(skinSrc(s), tex => { if (remotes.get(r.id) === r && r.skinKey === key) { r.mat.map = tex; r.mat.needsUpdate = true; } });
+}
+let mySkin = null;
+try { mySkin = localStorage.getItem('sbx_skin') || null; } catch (e) {}
+function skinMsg(t) { el('skin-msg').textContent = t || ''; }
+function sendSkin() { netSend({ t: 'skin', s: mySkin === 'blue' && !isAdmin ? null : mySkin }); }
+function skinPreview() {
+  const cv = el('skin-prev'), c = cv.getContext('2d'); c.clearRect(0, 0, 8, 8);
+  const src = skinSrc(mySkin), img = new Image();
+  img.onload = () => { c.clearRect(0, 0, 8, 8); if (src) { c.drawImage(img, 8, 8, 8, 8, 0, 0, 8, 8); c.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8); } else c.drawImage(img, 8, 48, 8, 8, 0, 0, 8, 8); };
+  img.src = src || STEVE.tex;
+}
+function setMySkin(s, msg) {
+  mySkin = s || null;
+  try { if (mySkin) localStorage.setItem('sbx_skin', mySkin); else localStorage.removeItem('sbx_skin'); } catch (e) {}
+  skinPreview(); skinMsg(msg || ''); if (netState === 'on') sendSkin();
+}
+function pngIs64(dataUrl) {                                       // read the size from the PNG header without decoding the picture
+  try {
+    const b = atob(dataUrl.slice(22, 22 + 48)), u32 = i => ((b.charCodeAt(i) << 24) | (b.charCodeAt(i + 1) << 16) | (b.charCodeAt(i + 2) << 8) | b.charCodeAt(i + 3)) >>> 0;
+    return b.slice(1, 4) === 'PNG' && u32(16) === 64 && u32(20) === 64;
+  } catch (e) { return false; }
+}
+el('skin-up').addEventListener('click', () => el('skin-file').click());
+el('skin-file').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (f.type !== 'image/png' || f.size > 18000) { skinMsg('❌ The skin must be a PNG file under 18 KB'); return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    const url = String(fr.result);
+    if (!url.startsWith('data:image/png;base64,') || !pngIs64(url)) { skinMsg('❌ The skin must be 64×64 pixels'); return; }
+    setMySkin(url, '✅ Skin set');
+  };
+  fr.readAsDataURL(f);
+});
+el('skin-blue').addEventListener('click', () => { if (isAdmin) setMySkin('blue', '✅ Blue skin'); });
+el('skin-reset').addEventListener('click', () => setMySkin(null, '✅ Default skin'));
+skinPreview();
+// ---------- items in your hand (you see it, other players see it too, also in VR) ----------
+const HELD_BOX = new THREE.BoxGeometry(1, 1, 1), HELD_PLANE = new THREE.PlaneGeometry(1, 1);
+const heldMats = {};
+function heldMat(id, fp) {                                        // fp = first person: drawn on top of the world so it never sinks into walls
+  const key = id + (fp ? 'f' : '');
+  if (!heldMats[key]) {
+    let m;
+    if (id < 100) m = dropMat(id).clone();
+    else {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 16;
+      const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; c.drawImage(atlasCanvas, BLOCKS[id].icon * TILE, 0, TILE, TILE, 0, 0, 16, 16);
+      const tex = new THREE.CanvasTexture(cv); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+      m = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, emissive: 0x222222 });
+    }
+    if (fp) { m.depthTest = false; m.transparent = id >= 100; }
+    heldMats[key] = m;
+  }
+  return heldMats[key];
+}
+// mode 'arm': a child of the arm (the arm hangs along -y, forward is +z); 'fp': on the camera (forward is -z); 'vr': on the controller (forward is -z)
+function makeHeld(id, mode) {
+  if (!id || !BLOCKS[id]) return null;
+  const g = new THREE.Group(), fp = mode === 'fp';
+  const mesh = new THREE.Mesh(id < 100 ? HELD_BOX : HELD_PLANE, heldMat(id, fp));
+  if (fp) mesh.renderOrder = 999;
+  if (id < 100) {                                                  // a block: a small cube
+    const sz = mode === 'arm' ? 0.27 : mode === 'fp' ? 0.3 : 0.12;
+    mesh.scale.set(sz, sz, sz);
+    if (mode === 'arm') g.position.set(0, -0.66, 0.2);
+    else if (mode === 'fp') { g.position.set(0.5, -0.42, -0.75); g.rotation.set(0.25, 0.7, 0); }
+    else g.position.set(0, 0, -0.1);
+  } else {                                                         // a tool / food / other item: a flat picture held diagonally
+    const sz = mode === 'arm' ? 0.55 : mode === 'fp' ? 0.55 : 0.24;
+    mesh.scale.set(sz, sz, 1);
+    if (mode === 'arm') { g.position.set(0, -0.42, 0.12); g.rotation.y = -Math.PI / 2; }
+    else if (mode === 'fp') { g.position.set(0.5, -0.4, -0.75); g.rotation.y = -0.35; }
+    else { g.position.set(0, 0.07, -0.1); g.rotation.y = Math.PI / 2; }
+  }
+  g.add(mesh); g.userData.base = { x: g.position.x, y: g.position.y, z: g.position.z, rx: g.rotation.x, ry: g.rotation.y, rz: g.rotation.z };
+  return g;
+}
+function setRemoteHeld(r, id) {
+  r.heldId = id || 0;
+  if (r.held) { r.parts.armR.remove(r.held); r.held = null; }
+  const g = makeHeld(r.heldId, 'arm'); if (g) { r.parts.armR.add(g); r.held = g; }
+}
+const heldLocal = { id: -1, parent: null, g: null, sent: -1 };
+function updateHeldLocal() {
+  const id = player.alive ? selectedType : 0, parent = xrActive ? (vr.ctrls[vr.main] || null) : camera;
+  if (id !== heldLocal.id || parent !== heldLocal.parent) {
+    if (heldLocal.g && heldLocal.parent) heldLocal.parent.remove(heldLocal.g);
+    heldLocal.g = parent ? makeHeld(id, xrActive ? 'vr' : 'fp') : null; heldLocal.id = id; heldLocal.parent = parent;
+    if (heldLocal.g) parent.add(heldLocal.g);
+  }
+  if (heldLocal.g && !xrActive) {                                  // swing when hitting / mining
+    const b = heldLocal.g.userData.base, mining = (attackHeld || touch.breakHeld) && mine.p > 0;
+    const sw = attackCooldown > 0 ? Math.sin((1 - attackCooldown / 0.18) * Math.PI) : mining ? 0.5 + 0.5 * Math.sin(performance.now() / 70) : 0;
+    heldLocal.g.rotation.x = b.rx - sw * 0.9; heldLocal.g.position.set(b.x - sw * 0.1, b.y + sw * 0.08, b.z - sw * 0.15);
+  }
+  if (netState === 'on' && heldLocal.sent !== selectedType) { heldLocal.sent = selectedType; netSend({ t: 'held', i: selectedType }); }
+}
 function addRemote(p) {
   if (!p || remotes.has(p.id)) return;
   const mat = new THREE.MeshLambertMaterial({ map: STEVE_TEX, side: THREE.DoubleSide, alphaTest: 0.5, emissive: 0x000000 });
@@ -2434,10 +2583,12 @@ function addRemote(p) {
   g.rotation.y = r.yaw + Math.PI;
   setRemoteName(r, String(p.name || 'Player'));
   remotes.set(p.id, r);
+  if (p.skin) applySkin(r, p.skin);
+  if (p.held) setRemoteHeld(r, p.held);
 }
 function setRemoteName(r, name) {
   if (r.sprite) { r.g.remove(r.sprite); r.sprite.material.map.dispose(); r.sprite.material.dispose(); }
-  r.sprite = makeNameSprite(name); r.sprite.position.y = 2.25; r.g.add(r.sprite);
+  r.name = name; r.sprite = makeNameSprite(name); r.sprite.position.y = 2.25; r.g.add(r.sprite);
 }
 function removeRemote(id) {
   const r = remotes.get(id); if (!r) return;
@@ -2455,9 +2606,9 @@ function openChat() {
   if (netState !== 'on') { toast('Chat needs a multiplayer connection'); return; }
   chatOpen = true; for (const k in keys) keys[k] = false;
   if (locked) document.exitPointerLock();
-  chatIn.style.display = 'block'; chatIn.value = ''; chatIn.focus();
+  el('chatbar').style.display = 'flex'; chatIn.value = ''; chatIn.focus();
 }
-function closeChat() { chatOpen = false; chatIn.style.display = 'none'; chatIn.blur(); }
+function closeChat() { chatOpen = false; el('chatbar').style.display = 'none'; chatIn.blur(); }
 function sendChat(text) {
   text = String(text || '').trim().slice(0, 120); if (!text) return;
   if (netState !== 'on') { toast('Chat needs a multiplayer connection'); return; }
@@ -2465,10 +2616,12 @@ function sendChat(text) {
 }
 chatIn.addEventListener('keydown', e => {
   e.stopPropagation();
-  if (e.code === 'Enter') { sendChat(chatIn.value); closeChat(); }
+  if (e.key === 'Enter' || e.code === 'Enter') { e.preventDefault(); sendChat(chatIn.value); closeChat(); }
   else if (e.code === 'Escape') closeChat();
 });
 el('chat-btn').addEventListener('click', () => chatOpen ? closeChat() : openChat());
+el('chat-send').addEventListener('click', () => { sendChat(chatIn.value); closeChat(); });
+el('chat-x').addEventListener('click', closeChat);
 function onChat(m) {
   const text = String(m.text || '').slice(0, 120), name = String(m.name || '?').slice(0, 16);
   const line = document.createElement('div'), b = document.createElement('b');
@@ -2479,70 +2632,101 @@ function onChat(m) {
   if (r) { if (r.bubble) scene.remove(r.bubble); r.bubble = makeTextSprite(text.slice(0, 60)); r.bubbleT = 5; scene.add(r.bubble); r.bubble.position.set(r.g.position.x, r.g.position.y + 2.7, r.g.position.z); }
 }
 
-// ---------- voice chat (open mic): WebRTC, one connection per player pair, the server only passes the handshake along ----------
-const voice = { on: false, stream: null, peers: new Map(), unsupported: !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection) };
-const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
-function voiceMake(id) {
-  if (voice.unsupported || id === myId || voice.peers.has(id)) return voice.peers.get(id);
-  const pc = new RTCPeerConnection(ICE), peer = { pc, audio: null, tr: pc.addTransceiver('audio', { direction: 'sendrecv' }) };
-  if (voice.stream) peer.tr.sender.replaceTrack(voice.stream.getAudioTracks()[0]).catch(() => {});
-  pc.onicecandidate = e => { if (e.candidate) netSend({ t: 'rtc', to: id, d: { c: e.candidate } }); };
-  const a = document.createElement('audio'); a.autoplay = true; a.srcObject = new MediaStream([peer.tr.receiver.track]);
-  a.style.display = 'none'; document.body.appendChild(a); peer.audio = a; a.play().catch(() => {});
-  pc.ontrack = e => { if (e.streams && e.streams[0]) { peer.audio.srcObject = e.streams[0]; peer.audio.play().catch(() => {}); } };
-  voice.peers.set(id, peer);
-  if (myId !== null && myId < id) voiceOffer(id, peer);                    // the lower id makes the offer
-  return peer;
+// ---------- voice chat (open mic) ----------
+// Sound is captured, turned into 16 kHz 8-bit audio and sent through the game server to the other players (so it works
+// behind any router / mobile network, no WebRTC needed). Silence is not sent. Quieter the further away somebody is.
+const voice = { on: false, stream: null, ctx: null, proc: null, node: null, acc: [], pos: 0, hang: 0, sending: false, spk: new Map(), reason: '' };
+voice.unsupported = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.AudioContext || window.webkitAudioContext));
+if (voice.unsupported) voice.reason = window.isSecureContext === false ? 'needs HTTPS' : 'not supported in this browser';
+function mulawEnc(x) {
+  let v = Math.round(Math.max(-1, Math.min(1, x)) * 32767); const sign = v < 0 ? 0x80 : 0; if (v < 0) v = -v;
+  if (v > 32635) v = 32635; v += 132;
+  let e = 7; for (let m = 0x4000; (v & m) === 0 && e > 0; e--, m >>= 1);
+  return (~(sign | (e << 4) | ((v >> (e + 3)) & 0x0f))) & 0xff;
 }
-async function voiceOffer(id, peer) {
-  try { await peer.pc.setLocalDescription(await peer.pc.createOffer()); netSend({ t: 'rtc', to: id, d: { s: peer.pc.localDescription } }); } catch (e) {}
+function mulawDec(u) {
+  u = ~u & 0xff; const e = (u >> 4) & 7; let v = (((u & 0x0f) << 3) + 132) << e; v -= 132; return ((u & 0x80) ? -v : v) / 32768;
 }
-async function onRtc(m) {
-  if (voice.unsupported || !Number.isInteger(m.from) || !m.d) return;
-  const peer = voiceMake(m.from); if (!peer) return;
-  try {
-    if (m.d.s) {
-      if (m.d.s.type === 'offer' && peer.pc.signalingState !== 'stable' && myId < m.from) return;     // both offered at once: the lower id wins
-      await peer.pc.setRemoteDescription(m.d.s);
-      if (m.d.s.type === 'offer') { await peer.pc.setLocalDescription(await peer.pc.createAnswer()); netSend({ t: 'rtc', to: m.from, d: { s: peer.pc.localDescription } }); }
-    } else if (m.d.c) await peer.pc.addIceCandidate(m.d.c);
-  } catch (e) {}
+function voiceCtx() {
+  if (!voice.ctx && !voice.unsupported) { try { voice.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { voice.unsupported = true; } }
+  if (voice.ctx && voice.ctx.state === 'suspended') voice.ctx.resume().catch(() => {});
+  return voice.ctx;
 }
-function voiceClose(id) {
-  const peer = voice.peers.get(id); if (!peer) return;
-  try { peer.pc.close(); } catch (e) {}
-  if (peer.audio) { peer.audio.srcObject = null; peer.audio.remove(); }
-  voice.peers.delete(id);
-}
-function voiceCloseAll() { for (const id of [...voice.peers.keys()]) voiceClose(id); }
-function voiceUpdate() {                                          // people further away are quieter
-  for (const [id, peer] of voice.peers) {
-    if (!peer.audio) continue;
-    const r = remotes.get(id), d = r ? Math.hypot(r.g.position.x - player.pos.x, r.g.position.y - player.pos.y, r.g.position.z - player.pos.z) : 0;
-    peer.audio.volume = Math.max(0, Math.min(1, 1.25 - d / 45));
+for (const ev of ['pointerdown', 'touchstart', 'keydown', 'click']) addEventListener(ev, () => { if (!voice.ctx || voice.ctx.state !== 'running') voiceCtx(); }, { passive: true });
+function voiceCapture(data, sr) {
+  const step = sr / 16000, n = Math.max(1, Math.round(step)); let pos = voice.pos;
+  while (pos + n <= data.length) {
+    let sum = 0, i0 = Math.floor(pos); for (let k = 0; k < n; k++) sum += data[i0 + k];
+    voice.acc.push(sum / n); pos += step;
   }
+  voice.pos = Math.max(0, pos - data.length);
+  while (voice.acc.length >= 1600) {
+    const chunk = voice.acc.splice(0, 1600); let e = 0; for (let i = 0; i < chunk.length; i++) e += chunk[i] * chunk[i];
+    if (Math.sqrt(e / chunk.length) > 0.012) voice.hang = 0.4; else voice.hang -= 0.1;
+    voice.sending = voice.hang > 0;
+    if (!voice.sending || netState !== 'on') continue;
+    const bytes = new Uint8Array(1600); for (let i = 0; i < 1600; i++) bytes[i] = mulawEnc(chunk[i]);
+    netSend({ t: 'v', d: btoa(String.fromCharCode.apply(null, bytes)) });
+  }
+}
+function onVoice(m) {
+  if (typeof m.d !== 'string' || m.d.length > 4000 || !Number.isInteger(m.id)) return;
+  const ctx = voiceCtx(); if (!ctx || ctx.state !== 'running') return;
+  let bin; try { bin = atob(m.d); } catch (e) { return; }
+  const n = bin.length; if (!n) return;
+  const buf = ctx.createBuffer(1, n, 16000), ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) ch[i] = mulawDec(bin.charCodeAt(i));
+  let sp = voice.spk.get(m.id);
+  if (!sp) { const g = ctx.createGain(); g.connect(ctx.destination); sp = { g, next: 0, last: 0 }; voice.spk.set(m.id, sp); }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.connect(sp.g);
+  let t = Math.max(sp.next, ctx.currentTime + 0.15); if (sp.next - ctx.currentTime > 0.8) t = ctx.currentTime + 0.15;
+  src.start(t); sp.next = t + buf.duration; sp.last = performance.now();
+}
+function voiceMake() {}
+function onRtc() {}
+function voiceClose(id) { const sp = voice.spk.get(id); if (sp) { try { sp.g.disconnect(); } catch (e) {} voice.spk.delete(id); } }
+function voiceCloseAll() { for (const id of [...voice.spk.keys()]) voiceClose(id); }
+let talkT = 0;
+function voiceUpdate() {
+  const now = performance.now();
+  for (const [id, sp] of voice.spk) {
+    const r = remotes.get(id), d = r ? Math.hypot(r.g.position.x - player.pos.x, r.g.position.y - player.pos.y, r.g.position.z - player.pos.z) : 0;
+    sp.g.gain.value = Math.max(0, Math.min(1, 1.25 - d / 45));
+  }
+  if (now - talkT < 200) return; talkT = now;
+  const names = []; if (voice.on && voice.sending) names.push('🎙️ You');
+  for (const [id, sp] of voice.spk) if (now - sp.last < 500) { const r = remotes.get(id); names.push('🔊 ' + (r && r.name ? r.name : 'Player')); }
+  const tk = el('talk'); const txt = names.join('   '); if (tk.textContent !== txt) tk.textContent = txt;
 }
 function voiceBtn() { const b = el('mic-btn'); b.classList.toggle('on', voice.on); b.textContent = voice.on ? '🎙️' : '🎤'; }
 async function voiceToggle(forceOn) {
-  if (voice.unsupported) { toast('Voice chat is not supported in this browser'); return; }
+  if (voice.unsupported) { toast('Voice chat: ' + (voice.reason || 'not supported')); return; }
   if (voice.on) {
     if (forceOn) return;
-    voice.on = false; for (const peer of voice.peers.values()) peer.tr.sender.replaceTrack(null).catch(() => {});
+    voice.on = false; voice.sending = false;
+    if (voice.proc) { try { voice.proc.disconnect(); voice.node.disconnect(); } catch (e) {} voice.proc.onaudioprocess = null; voice.proc = null; }
     if (voice.stream) { for (const tr of voice.stream.getTracks()) tr.stop(); voice.stream = null; }
     try { localStorage.setItem('sbx_mic', '0'); } catch (e) {}
-    voiceBtn(); vrDirty = true; if (typeof VRM !== 'undefined') VRM.dirty = true; return;
+    voiceBtn(); if (typeof VRM !== 'undefined') VRM.dirty = true; return;
   }
   try {
     voice.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-    voice.on = true; const track = voice.stream.getAudioTracks()[0];
-    for (const [id, peer] of voice.peers) peer.tr.sender.replaceTrack(track).then(() => voiceOffer(id, peer)).catch(() => {});      // renegotiate so the other side sees the new audio stream
+    const ctx = voiceCtx(); if (!ctx) throw new Error('no audio');
+    const src = ctx.createMediaStreamSource(voice.stream);
+    voice.proc = ctx.createScriptProcessor(2048, 1, 1); voice.node = src;
+    voice.acc = []; voice.pos = 0; voice.hang = 0;
+    voice.proc.onaudioprocess = e => voiceCapture(e.inputBuffer.getChannelData(0), ctx.sampleRate);
+    const mute = ctx.createGain(); mute.gain.value = 0; src.connect(voice.proc); voice.proc.connect(mute); mute.connect(ctx.destination);
+    voice.on = true;
     try { localStorage.setItem('sbx_mic', '1'); } catch (e) {}
-    toast('🎙️ Microphone is on (open mic)');
-  } catch (e) { toast('Microphone: ' + (e && e.name === 'NotAllowedError' ? 'permission denied' : 'not available')); }
+    toast(netState === 'on' ? '🎙️ Microphone is on (open mic)' : '🎙️ Microphone is on, but you are not connected to a multiplayer server');
+  } catch (e) {
+    if (voice.stream) { for (const tr of voice.stream.getTracks()) tr.stop(); voice.stream = null; }
+    toast('Microphone: ' + (e && e.name === 'NotAllowedError' ? 'permission denied (allow it in the browser settings for this site)' : e && e.name === 'NotFoundError' ? 'no microphone found' : 'not available'));
+  }
   voiceBtn(); if (typeof VRM !== 'undefined') VRM.dirty = true;
 }
 el('mic-btn').addEventListener('click', () => voiceToggle());
-if (voice.unsupported) el('mic-btn').style.display = 'none';
 
 const _DOWN = new THREE.Vector3(0, -1, 0), _AD = new THREE.Vector3();
 function pointArm(r, arm, pv, hx, hy, hz) {                      // aim an arm (hanging along -y from its shoulder) at a hand position
@@ -2556,7 +2740,7 @@ function vrHands() {                                              // controller 
   let L = vr.ctrls[0], R = vr.ctrls[1];
   for (const c of vr.ctrls) { const h = c.userData.src && c.userData.src.handedness; if (h === 'left') L = c; else if (h === 'right') R = c; }
   if (L === R) return null;
-  const a = L.matrixWorld.elements, b = R.matrixWorld.elements, px = player.pos.x, py = player.pos.y, pz = player.pos.z;
+  const a = L.matrixWorld.elements, b = R.matrixWorld.elements, px = eyePos.x, py = player.pos.y, pz = eyePos.z;   // sideways/forward relative to the HEAD (you may stand off-centre in your room), height relative to the feet
   const o = [a[12] - px, a[13] - py, a[14] - pz, b[12] - px, b[13] - py, b[14] - pz].map(v => +Math.max(-7.9, Math.min(7.9, v)).toFixed(2));
   return o.every(Number.isFinite) ? o : null;
 }
@@ -2795,7 +2979,7 @@ function drawVrMenu() {
     c.fillStyle = '#fff'; c.fillText(t('chunks') + ': ' + renderDist, 40, 220);
     btn(380, 190, 100, 56, '−', () => applyRenderDist(Math.max(2, renderDist - 4)), renderDist > 2, false);
     btn(500, 190, 100, 56, '+', () => applyRenderDist(Math.min(50, renderDist + 4)), renderDist < 50, false);
-    btn(40, 270, 300, 50, voice.on ? '🎙️ Mic: ON (open mic)' : '🎤 Mic: OFF', () => voiceToggle(), !voice.unsupported, voice.on);
+    btn(40, 270, 300, 50, voice.on ? '🎙️ Mic: ON (open mic)' : '🎤 Mic: OFF', () => voiceToggle(), true, voice.on);
     c.font = '17px Arial'; c.fillStyle = '#aab';
     c.fillText('Open / close this menu: left Y button or press a thumbstick.', 40, 330);
     c.fillText('Trigger or grip clicks a button. Walk away to close it.', 40, 358);
@@ -2963,7 +3147,7 @@ function update() {
   updateMining(dt); updateFlows(dt);
   updateMonsters(dt);
   updateDrops(dt);
-  updateVillagers(dt); netEntsTick(dt); updateCorpses(dt); voiceUpdate();
+  updateVillagers(dt); netEntsTick(dt); updateCorpses(dt); voiceUpdate(); updateHeldLocal();
   netUpdate(dt);
 
   // physics blocks
