@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="sbx-build" content="2026-11-02T08:30">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -207,7 +208,6 @@
   #btn-jump  { right: 22px;  bottom: 44px; width: 74px; height: 74px; }
   #btn-break { right: 22px;  bottom: 134px; }
   #btn-place { right: 104px; bottom: 96px; }
-  #btn-spawn { right: 104px; bottom: 20px; width: 52px; height: 52px; font-size: 22px; }
   @media (max-width: 520px) { .setting-row label { min-width: 100px; font-size: 14px; } }
 </style>
 </head>
@@ -234,6 +234,7 @@
 <button id="vr-btn">🥽 VR</button>
 <div id="uw"></div>
 <div id="craft"></div>
+<div id="updbar" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:60;background:#2d6cdf;color:#fff;padding:10px 14px;border-radius:10px;font:bold 14px Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.5);text-align:center;max-width:92vw">🔄 A new version is available <button id="updgo" style="margin-left:8px;padding:6px 12px;border:0;border-radius:6px;background:#fff;color:#1a4fb0;font-weight:bold;cursor:pointer">Update now</button> <button id="updno" style="margin-left:4px;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#cde;cursor:pointer">✕</button></div>
 <div id="toast"></div>
 <div id="overlay"></div>
 
@@ -294,9 +295,10 @@
     </div>
     <div class="setting-row">
       <span class="setting-val" id="v-adm" style="flex:1;text-align:left;color:#aaa"></span>
-      <div class="btn-row"><button id="adm-reset" data-i18n="adm_reset" style="background:#7a2222;display:none">🗑️ Reset world</button></div>
     </div>
   </div>
+  <div style="margin-top:12px;text-align:center;font-size:12px;color:#889">Version <span id="v-build"></span> <button id="btn-upd" style="margin-left:6px;padding:4px 10px;border-radius:6px;border:0;background:#445;color:#fff;cursor:pointer">🔄 Check for updates</button></div>
+  <div style="margin-top:8px;text-align:center"><a href="https://github.com/iceyboxey/sigmacraft-servers" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:9px 16px;border-radius:8px;background:#2d6cdf;color:#fff;font-weight:bold;text-decoration:none;font-size:14px">⬇️ Download index.html &amp; APK (GitHub)</a></div>
   <div style="font-size:11px;color:#889;margin-top:10px;text-align:center;line-height:1.5">
     <a data-i18n="credit" href="https://sketchfab.com/3d-models/minecraft-steve-cb228dcc137042cc9a3dc588758cc6e9" target="_blank" rel="noopener noreferrer" style="color:#9ab">Player model: "Minecraft - Steve" by Vincent Yanez</a>
     · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" style="color:#9ab">CC BY 4.0</a>
@@ -310,7 +312,6 @@
   <div class="tbtn" id="btn-jump">⬆️</div>
   <div class="tbtn" id="btn-break">⛏️</div>
   <div class="tbtn" id="btn-place">🧱</div>
-  <div class="tbtn" id="btn-spawn">📦</div>
 </div>
 
 <div id="lobby">
@@ -347,7 +348,7 @@ const I18N = {
     fog:'🌫️ Fog', speed:'🏃 Speed', trees:'🌳 Trees', monsters:'👾 Monsters', touch:'📱 Touch controls',
     close:'✅ Close', day:'Day', night:'Night', warning:'⚠️ Monsters are near!',
     gameover:'💀 Game Over', gameover_txt:'The monsters got you!', gameover_pvp:'You were knocked out by {n}!', credit:'Player model: "Minecraft - Steve" by Vincent Yanez', restart:'🔄 Play again',
-    info_desktop:'WASD = Move | Space = Jump | Left click = Break / Hit | Right click = Place | Q = Spawn block | 1-8 / Wheel = Select | ESC = Settings',
+    info_desktop:'WASD = Move | Space = Jump | Left click = Break / Hit | Right click = Place | 1-8 / Wheel = Select | ESC = Settings',
     info_touch:'Left stick = Move | Drag = Look | Buttons = Jump / Break / Place',
     fps:'FPS', chunks_l:'Chunks',
     mp_name:'👤 Name', mp_status:'🌐 Multiplayer', mp_off:'Offline', mp_on:'Online', mp_conn:'Connecting…', mp_players:'players',
@@ -369,7 +370,7 @@ const I18N = {
     fog:'🌫️ Nebel', speed:'🏃 Geschwindigkeit', trees:'🌳 Bäume', monsters:'👾 Monster', touch:'📱 Touch-Steuerung',
     close:'✅ Schließen', day:'Tag', night:'Nacht', warning:'⚠️ Monster nahen sich!',
     gameover:'💀 Game Over', gameover_txt:'Die Monster haben dich erwischt!', gameover_pvp:'Du wurdest von {n} ausgeschaltet!', credit:'Spielermodell: "Minecraft - Steve" von Vincent Yanez', restart:'🔄 Nochmal spielen',
-    info_desktop:'WASD = Bewegen | Leertaste = Springen | Linksklick = Abbauen / Schlagen | Rechtsklick = Platzieren | Q = Block spawnen | 1-8 / Mausrad = Wählen | ESC = Einstellungen',
+    info_desktop:'WASD = Bewegen | Leertaste = Springen | Linksklick = Abbauen / Schlagen | Rechtsklick = Platzieren | 1-8 / Mausrad = Wählen | ESC = Einstellungen',
     info_touch:'Linker Stick = Bewegen | Wischen = Umschauen | Buttons = Springen / Abbauen / Platzieren',
     fps:'FPS', chunks_l:'Chunks',
     mp_name:'👤 Name', mp_status:'🌐 Mehrspieler', mp_off:'Offline', mp_on:'Online', mp_conn:'Verbinde…', mp_players:'Spieler',
@@ -437,7 +438,7 @@ scene.add(ambientLight);
 // =====================================================
 // PROCEDURAL TEXTURE ATLAS (16x16 pixel tiles)
 // =====================================================
-const TILE = 16, NT = 67;
+const TILE = 16, NT = 75;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width = TILE * NT; atlasCanvas.height = TILE;
 const actx = atlasCanvas.getContext('2d');
@@ -640,6 +641,19 @@ for (let i = 0; i < 3; i++) {
   LN(51 + i, 3, 13, 10, 7, 2, HANDLE); BLOB(51 + i, 11.5, 4.5, 3, 3.4, c);                                                         // shovels
   LN(54 + i, 4, 12, 13, 3, 2, c); LN(54 + i, 3, 9, 8, 14, 1, HANDLE); LN(54 + i, 2, 14, 4, 12, 2, HANDLE);                       // swords
 }
+// diamond: 67 gem, 68-71 diamond pickaxe / axe / shovel / sword, 72-74 deepslate coal / iron / gold ore
+{
+  const c = [70, 226, 222];
+  BLOB(67, 8, 8, 5.5, 5.5, c); BLOB(67, 8, 8, 3.6, 3.6, [150, 250, 245]); PX(67, 6, 6, 255, 255, 255); PX(67, 7, 6, 255, 255, 255); LN(67, 3, 8, 8, 13, 1, [40, 160, 170]);
+  LN(68, 3, 13, 10, 6, 2, HANDLE); LN(68, 4, 3, 13, 3, 2, c); LN(68, 3, 4, 4, 6, 2, c); LN(68, 12, 4, 13, 6, 2, c);
+  LN(69, 3, 13, 10, 6, 2, HANDLE); RECT(69, 8, 2, 12, 7, c); RECT(69, 13, 3, 13, 6, [c[0] * 0.8, c[1] * 0.8, c[2] * 0.8]);
+  LN(70, 3, 13, 10, 7, 2, HANDLE); BLOB(70, 11.5, 4.5, 3, 3.4, c);
+  LN(71, 4, 12, 13, 3, 2, c); LN(71, 3, 9, 8, 14, 1, HANDLE); LN(71, 2, 14, 4, 12, 2, HANDLE);
+  for (const [tile, col] of [[72, [30, 30, 34]], [73, [214, 170, 140]], [74, [250, 215, 60]]]) {
+    actx.drawImage(atlasCanvas, 13 * TILE, 0, TILE, TILE, tile * TILE, 0, TILE, TILE);            // deepslate as the base
+    for (let i = 0; i < 7; i++) { const bx = 1 + ((rnd() * 13) | 0), by = 1 + ((rnd() * 13) | 0); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (rnd() < 0.85) { const k = 0.85 + rnd() * 0.3; PX(tile, bx + dx, by + dy, col[0] * k, col[1] * k, col[2] * k); } }
+  }
+}
 for (const [tile, liquid] of [[57, null], [58, [40, 110, 220]], [59, [255, 150, 30]]]) {
   RECT(tile, 4, 6, 11, 13, [176, 176, 184]); RECT(tile, 5, 14, 10, 14, [150, 150, 158]); LN(tile, 3, 4, 12, 4, 1, [140, 140, 148]); LN(tile, 3, 4, 3, 6, 1, [140, 140, 148]); LN(tile, 12, 4, 12, 6, 1, [140, 140, 148]);
   if (liquid) RECT(tile, 5, 5, 10, 7, liquid);
@@ -694,7 +708,20 @@ const BLOCKS = [null,
   { faces: [32, 32, 32, 32, 32, 32], icon: 32 }, // 26 stone brick
   { faces: [64, 64, 64, 64, 64, 64], icon: 64 }, // 27 gateway frame
   { faces: [65, 65, 65, 65, 65, 65], icon: 65 }, // 28 gateway (portal)
-  { faces: [66, 66, 66, 66, 66, 66], icon: 66 }  // 29 diamond ore
+  { faces: [66, 66, 66, 66, 66, 66], icon: 66 }, // 29 diamond ore
+  { faces: [72, 72, 72, 72, 72, 72], icon: 72 }, // 30 deepslate coal ore
+  { faces: [73, 73, 73, 73, 73, 73], icon: 73 }, // 31 deepslate iron ore
+  { faces: [74, 74, 74, 74, 74, 74], icon: 74 }, // 32 deepslate gold ore
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },
+  { faces: [19, 19, 19, 19, 19, 19], icon: 19 },   // 33-39 flowing water, level 1-7
+  { faces: [20, 20, 20, 20, 20, 20], icon: 20 },
+  { faces: [20, 20, 20, 20, 20, 20], icon: 20 },
+  { faces: [20, 20, 20, 20, 20, 20], icon: 20 }    // 40-42 flowing lava, level 1-3
 ];
 // Items that are not blocks (ids from 100): [id, tile, English, German]
 const ITEMDEF = [
@@ -708,12 +735,13 @@ const ITEMDEF = [
   [124, 54, 'Wooden sword', 'Holzschwert'], [125, 55, 'Stone sword', 'Steinschwert'], [126, 56, 'Iron sword', 'Eisenschwert'],
   [127, 57, 'Bucket', 'Eimer'], [128, 58, 'Water bucket', 'Wassereimer'], [129, 59, 'Lava bucket', 'Lavaeimer'],
   [130, 60, 'Raw mutton', 'Rohes Hammelfleisch'], [131, 61, 'Cooked mutton', 'Gebratenes Hammelfleisch'],
-  [132, 62, 'ද', 'ද'], [133, 63, 'Gateway pointer', 'Tor-Zeiger']
+  [132, 62, 'ද', 'ද'], [133, 63, 'Gateway pointer', 'Tor-Zeiger'],
+  [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
 ];
 const ITEMS = {};
 const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'Stein'], 4: ['Sand', 'Sand'], 5: ['Wood', 'Holz'], 6: ['Snow', 'Schnee'], 7: ['Brick', 'Ziegel'], 8: ['Planks', 'Bretter'], 9: ['Leaves', 'Laub'],
   10: ['Door', 'Tür'], 14: ['Deepslate', 'Tiefenschiefer'], 18: ['Coal ore', 'Kohleerz'], 19: ['Iron ore', 'Eisenerz'], 20: ['Gold ore', 'Golderz'], 21: ['Crafting table', 'Werkbank'], 22: ['Furnace', 'Ofen'],
-  23: ['Glass', 'Glas'], 24: ['Bed', 'Bett'], 26: ['Stone brick', 'Steinziegel'], 27: ['Gateway frame', 'Torrahmen'], 28: ['Gateway', 'Tor'], 29: ['Diamond ore', 'Diamanterz'] };
+  23: ['Glass', 'Glas'], 24: ['Bed', 'Bett'], 26: ['Stone brick', 'Steinziegel'], 27: ['Gateway frame', 'Torrahmen'], 28: ['Gateway', 'Tor'], 29: ['Diamond ore', 'Diamanterz'], 30: ['Deepslate coal ore', 'Tiefenschiefer-Kohleerz'], 31: ['Deepslate iron ore', 'Tiefenschiefer-Eisenerz'], 32: ['Deepslate gold ore', 'Tiefenschiefer-Golderz'] };
 for (const id in BLOCK_NAMES) ITEMS[id] = { en: BLOCK_NAMES[id][0], de: BLOCK_NAMES[id][1] };
 for (const [id, tile, en, de] of ITEMDEF) { BLOCKS[id] = { faces: [tile, tile, tile, tile, tile, tile], icon: tile }; ITEMS[id] = { en, de }; }
 const iname = id => (ITEMS[id] && ITEMS[id][lang]) || ('#' + id);
@@ -722,15 +750,19 @@ const MAX_BLOCK = 63;
 // how hard each block is to break, and which tool is fast on it (min = lowest tool tier that makes it drop something)
 const BLOCK_INFO = { 1: { h: 0.6, t: 'shovel' }, 2: { h: 0.5, t: 'shovel' }, 3: { h: 3, t: 'pick', min: 1 }, 4: { h: 0.5, t: 'shovel' }, 5: { h: 2, t: 'axe' }, 6: { h: 0.3, t: 'shovel' },
   7: { h: 3, t: 'pick', min: 1 }, 8: { h: 1.5, t: 'axe' }, 9: { h: 0.2 }, 10: { h: 1, t: 'axe' }, 11: { h: 1, t: 'axe' }, 12: { h: 1, t: 'axe' }, 13: { h: 1, t: 'axe' }, 14: { h: 5, t: 'pick', min: 2 },
-  15: { h: 1.5, t: 'axe' }, 18: { h: 3.5, t: 'pick', min: 1 }, 19: { h: 4, t: 'pick', min: 2 }, 20: { h: 4.5, t: 'pick', min: 3 }, 21: { h: 1.5, t: 'axe' }, 22: { h: 3, t: 'pick', min: 1 },
-  23: { h: 0.3 }, 24: { h: 0.5 }, 25: { h: 5, t: 'pick', min: 1 }, 26: { h: 3, t: 'pick', min: 1 }, 29: { h: 5, t: 'pick', min: 3 } };   // diamond ore: iron pickaxe only
-const TOOLS = { pick: [[115, 1], [116, 2], [117, 3]], axe: [[118, 1], [119, 2], [120, 3]], shovel: [[121, 1], [122, 2], [123, 3]], sword: [[124, 2], [125, 3], [126, 4]] };   // [item, tier or damage]
-const TIER_SPEED = [1, 2, 3.5, 6];
+  15: { h: 1.5, t: 'axe' }, 18: { h: 3.5, t: 'pick', min: 1 }, 19: { h: 4, t: 'pick', min: 2 }, 20: { h: 4.5, t: 'pick', min: 2 }, 21: { h: 1.5, t: 'axe' }, 22: { h: 3, t: 'pick', min: 1 },
+  23: { h: 0.3 }, 24: { h: 0.5 }, 25: { h: 5, t: 'pick', min: 1 }, 26: { h: 3, t: 'pick', min: 1 }, 29: { h: 5, t: 'pick', min: 3 },
+  30: { h: 4.5, t: 'pick', min: 1 }, 31: { h: 5, t: 'pick', min: 2 }, 32: { h: 5.5, t: 'pick', min: 2 } };   // diamond ore: iron pickaxe only
+const TOOLS = { pick: [[115, 1], [116, 2], [117, 3], [135, 4]], axe: [[118, 1], [119, 2], [120, 3], [136, 4]], shovel: [[121, 1], [122, 2], [123, 3], [137, 4]], sword: [[124, 2], [125, 3], [126, 4], [138, 6]] };   // [item, tier or damage]
+const TIER_SPEED = [1, 2, 3.5, 6, 9];
 const isDoorId = id => id >= 10 && id <= 13;
-const isSolidId = id => id !== 0 && id !== 12 && id !== 13 && id !== 16 && id !== 17 && id !== 28;      // open doors and liquids can be walked through
-const isLiquid = id => id === 16 || id === 17;
+const isSolidId = id => id !== 0 && id !== 12 && id !== 13 && id !== 16 && id !== 17 && id !== 28 && !(id >= 33 && id <= 42);      // open doors and liquids can be walked through
+const isLiquid = id => id === 16 || id === 17 || (id >= 33 && id <= 42);
+const wLvl = id => id === 16 ? 0 : (id >= 33 && id <= 39 ? id - 32 : -1);       // water: 0 = source, 1-7 = flowing (further from the source = higher)
+const lLvl = id => id === 17 ? 0 : (id >= 40 && id <= 42 ? id - 39 : -1);       // lava: 0 = source, 1-3 = flowing
+const isWaterId = id => id === 16 || (id >= 33 && id <= 39), isLavaId = id => id === 17 || (id >= 40 && id <= 42);
 // ---------- Inventory: everything you mine drops as a small block; picking it up fills the corner panel ----------
-const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133];
+const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138];
 const inv = {}; for (const i of ITEM_IDS) inv[i] = 0;
 try {
   const sv = JSON.parse(localStorage.getItem('sbx_inv') || '{}');
@@ -933,7 +965,7 @@ function nb(ch, lx, ly, lz) {
   }
   return getBlock(ch.cx * 16 + lx, ly + Y_MIN, ch.cz * 16 + lz);
 }
-const seeThrough = n => n === 0 || n === 9 || n === 12 || n === 13 || n === 16 || n === 23 || n === 28;   // air, leaves, open doors, water, glass: faces next to them stay visible
+const seeThrough = n => n === 0 || n === 9 || n === 12 || n === 13 || n === 16 || (n >= 33 && n <= 39) || n === 23 || n === 28;   // air, leaves, open doors, water, glass: faces next to them stay visible
 function buildChunkMesh(ch) {
   const P = [], N = [], U = [], I = [], WP = [], WN = [], WU = [], WI = [];
   let vi = 0, wvi = 0;
@@ -960,17 +992,17 @@ function buildChunkMesh(ch) {
         }
         continue;
       }
-      const wet = id === 16;                              // water goes into its own see-through mesh
+      const wet = id === 16 || (id >= 33 && id <= 39);      // water goes into its own see-through mesh
+      const wl = wet ? Math.max(0, id - 32) : 0, wdrop = wet && nb(ch, lx, ly + 1, lz) === 0 ? 0.12 + 0.1 * wl : 0;   // flowing water gets lower the further it is from its source
       for (let f = 0; f < 6; f++) {
         const F = FACES[f];
         const n = nb(ch, lx + F.dir[0], ly + F.dir[1], lz + F.dir[2]);
         if (!seeThrough(n) || n === id) continue;
         if (wet && n !== 0 && n !== 9 && n !== 12 && n !== 13 && n !== 23) continue;
         const tile = faces[f], PP = wet ? WP : P, NN = wet ? WN : N, UU = wet ? WU : U, II = wet ? WI : I, base = wet ? wvi : vi;
-        const drop = wet && f === 3 && n === 0 ? 0.12 : 0;           // the water surface sits a little lower than the blocks
         for (let c = 0; c < 4; c++) {
           const cp = F.c[c];
-          PP.push(ox + lx - 0.5 + cp[0], wy - 0.5 + cp[1] - (wet && cp[1] === 1 && nb(ch, lx, ly + 1, lz) === 0 ? 0.12 : 0), oz + lz - 0.5 + cp[2]);
+          PP.push(ox + lx - 0.5 + cp[0], wy - 0.5 + cp[1] - (cp[1] === 1 ? wdrop : 0), oz + lz - 0.5 + cp[2]);
           NN.push(F.dir[0], F.dir[1], F.dir[2]);
           UU.push((tile + inset + cp[3] * span) / NT, inset + cp[4] * span);
         }
@@ -1082,21 +1114,32 @@ function applyGateways(data, cx, cz) {
     }
   }
 }
+const VOID_WEIRD = [26, 14, 7, 6, 4, 23, 20, 29, 9, 19, 2, 3, 27, 32, 31];       // what the big platform's top is made of
 function genVoid(data, cx, cz) {                                  // the Void: nothing but a starting platform, a way home and floating islands
   const put = (lx, y, lz, id) => { const ly = y - Y_MIN; if (ly >= 0 && ly < Y_H) data[(ly * 16 + lz) * 16 + lx] = id; };
   for (let lz = 0; lz < 16; lz++) for (let lx = 0; lx < 16; lx++) {
-    const dx = cx * 16 + lx - VOID_CX, dz = cz * 16 + lz;
+    const dx = cx * 16 + lx - VOID_CX, dz = cz * 16 + lz, wx0 = cx * 16 + lx;
+    {                                                             // the big platform: an irregular disc of weird blocks that tapers into a cone underneath
+      const dist = Math.hypot(dx, dz), th = Math.atan2(dz, dx), R = 27 + 4 * Math.sin(3 * th + 0.6) + 2.5 * Math.cos(5 * th + 1.3) + 1.5 * Math.sin(7 * th);
+      if (dist < R) {
+        const d = dist / R, depth = Math.floor((1 - d * d) * 12) + 2, hh = hash2(Math.floor(dx / 3) * 7 + 5, Math.floor(dz / 3) * 13 + 2);
+        const top = (Math.floor(dist) % 9 === 0) ? 27 : VOID_WEIRD[Math.floor(hh * VOID_WEIRD.length)];
+        put(lx, 0, lz, top);
+        for (let y = -1; y >= -depth; y--) { const h3 = hash3(wx0, y, dz); put(lx, y, lz, y >= -2 ? (h3 < 0.5 ? 14 : 3) : h3 < 0.04 ? 29 : h3 < 0.08 ? 20 : h3 < 0.13 ? 19 : 14); }
+        if (dist > 9 && dist < R - 2 && hash2(wx0 * 3 + 17, dz * 5 + 9) > 0.992) { const ph = 2 + Math.floor(hash2(wx0 + 71, dz + 33) * 4); for (let y = 1; y <= ph; y++) put(lx, y, lz, 14); put(lx, ph + 1, lz, hash2(wx0, dz) < 0.5 ? 29 : 27); }   // odd pillars
+      }
+    }
     if (Math.abs(dx) <= 6 && Math.abs(dz) <= 6) { put(lx, 0, lz, 26); put(lx, -1, lz, 14); }
     if (dz === -4 && Math.abs(dx) <= 2) {                         // the way back
       for (let y = 1; y <= 5; y++) { const ax = Math.abs(dx); if (ax <= 1 && y <= 4) put(lx, y, lz, 28); else if ((ax === 2 && y <= 5) || y === 5) put(lx, y, lz, 27); }
     }
   }
   const x0 = cx * 16, z0 = cz * 16;
-  for (let ia = Math.floor((x0 - 12) / 24); ia <= Math.floor((x0 + 28) / 24); ia++) for (let ib = Math.floor((z0 - 12) / 24); ib <= Math.floor((z0 + 28) / 24); ib++) {
-    if (hash2(ia * 31 + 7, ib * 17 + 3) > 0.5) continue;
-    const icx = Math.round(ia * 24 + 12 + (hash2(ia * 5 + 1, ib * 11 + 9) - 0.5) * 8), icz = Math.round(ib * 24 + 12 + (hash2(ia * 13 + 5, ib * 3 + 7) - 0.5) * 8);
-    const icy = Math.round(-22 + hash2(ia * 3 + 19, ib * 7 + 23) * 52), rr = 3.5 + hash2(ia + 101, ib + 53) * 4.5;
-    if (Math.abs(icx - VOID_CX) < 16 && Math.abs(icz) < 16) continue;
+  for (let ia = Math.floor((x0 - 12) / 32); ia <= Math.floor((x0 + 28) / 32); ia++) for (let ib = Math.floor((z0 - 12) / 32); ib <= Math.floor((z0 + 28) / 32); ib++) {
+    if (hash2(ia * 31 + 7, ib * 17 + 3) > 0.45) continue;
+    const icx = Math.round(ia * 32 + 16 + (hash2(ia * 5 + 1, ib * 11 + 9) - 0.5) * 10), icz = Math.round(ib * 32 + 16 + (hash2(ia * 13 + 5, ib * 3 + 7) - 0.5) * 10);
+    const icy = Math.round(-8 + hash2(ia * 3 + 19, ib * 7 + 23) * 24), rr = 3.5 + hash2(ia + 101, ib + 53) * 4.5;
+    const od = Math.hypot(icx - VOID_CX, icz); if (od < 42 || od > 95) continue;               // a few small islands around the big platform
     for (let lz = 0; lz < 16; lz++) for (let lx = 0; lx < 16; lx++) {
       const wx = x0 + lx, wz = z0 + lz, d = Math.hypot(wx - icx, wz - icz) / rr; if (d >= 1) continue;
       const depth = Math.floor((1 - d) * rr * 0.9 + 0.5);
@@ -1135,7 +1178,7 @@ function generateChunk(cx, cz) {
       else if (y >= h - 3) id = surf === 4 ? 4 : (surf === 6 ? 3 : 2);
       else {
         id = (y <= -20 || (y < -8 && hash2(cx * 16 + lx + y * 131, cz * 16 + lz - y * 17) < (-8 - y) / 12)) ? 14 : 3;   // stone, turning into deepslate further down
-        const ore = oreAt(cx * 16 + lx, y, cz * 16 + lz); if (ore) id = ore;
+        const ore = oreAt(cx * 16 + lx, y, cz * 16 + lz); if (ore) id = (id === 14 && ore <= 20) ? ore + 12 : ore;   // in deepslate: the deepslate version of the ore
         else if (id === 14 && diamondAt(cx * 16 + lx, y, cz * 16 + lz)) id = 29;   // only ever turns deepslate into diamond, nothing else changes
       }
       data[((y - Y_MIN) * 16 + lz) * 16 + lx] = id;
@@ -1321,6 +1364,54 @@ let ptrCd = 0;
 function launchPointer(x, y, z, ux, uz, len, gx, gz, arrive) {
   const mesh = new THREE.Mesh(PTR_GEO, PTR_MAT); mesh.position.set(x, y, z); scene.add(mesh);
   ptrFx.push({ mesh, x0: x, y0: y, z0: z, ux, uz, len, t: 0, dur: Math.max(0.6, len / 16), gx, gz, arrive, beam: null });
+}
+// ---------- the bow: hold it and press the place button (right click / VR grip / place button) to shoot an arrow ----------
+const arrows = []; let bowCd = 0;
+const ARROW_GEO = new THREE.BoxGeometry(0.06, 0.06, 0.8), ARROW_MAT = new THREE.MeshBasicMaterial({ color: 0xe8d9a8 });
+function shootBow() {
+  if (bowCd > 0) return;
+  if (!inv[113]) { toast('🏹 No arrows - craft some (stick + coal)'); return; }
+  inv[113]--; renderInv(); VRM.dirty = true; bowCd = 0.6; netSend({ t: 'swing' });
+  const o = new THREE.Vector3(), d = new THREE.Vector3();
+  if (vrAim) { o.copy(vrAim.o); d.copy(vrAim.d); } else { o.copy(camPos()); camera.getWorldDirection(d); }
+  d.normalize(); o.addScaledVector(d, 0.7);
+  const mesh = new THREE.Mesh(ARROW_GEO, ARROW_MAT); mesh.position.copy(o); scene.add(mesh);
+  arrows.push({ mesh, pos: o, vel: d.multiplyScalar(36), age: 0, stuck: 0 });
+}
+function arrowHit(a) {                                            // true when the arrow hit something and is used up
+  for (const m of monsters) {
+    if (m.dead) continue;
+    const hgt = m.kind === 2 ? 1.1 : 1.9;
+    if (Math.abs(a.pos.x - m.pos.x) < 0.5 && Math.abs(a.pos.z - m.pos.z) < 0.5 && a.pos.y > m.pos.y - 0.1 && a.pos.y < m.pos.y + hgt) {
+      const l = Math.hypot(a.vel.x, a.vel.z) || 1, kx = a.vel.x / l, kz = a.vel.z / l, dmg = 5;
+      if (m.net) netSend({ t: 'ehit', id: m.id, d: dmg, kx: +kx.toFixed(2), kz: +kz.toFixed(2) });
+      else { m.hp -= dmg; m.kb = 0.35; m.vel.set(kx * 6, 3, kz * 6); if (m.hp <= 0) killMonster(m); }
+      return true;
+    }
+  }
+  for (const [id, r] of remotes) {
+    if (r.dead) continue;
+    const p = r.g.position;
+    if (Math.abs(a.pos.x - p.x) < 0.45 && Math.abs(a.pos.z - p.z) < 0.45 && a.pos.y > p.y - 0.1 && a.pos.y < p.y + 1.9) { hitPlayer(id, true); return true; }
+  }
+  return false;
+}
+function updateArrows(dt) {
+  if (bowCd > 0) bowCd -= dt;
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i]; a.age += dt;
+    if (a.stuck > 0) { a.stuck -= dt; if (a.stuck <= 0) { scene.remove(a.mesh); arrows.splice(i, 1); } continue; }
+    let gone = a.age > 8;
+    const steps = Math.max(1, Math.ceil(a.vel.length() * dt / 0.3));
+    for (let k = 0; k < steps && !gone && !a.stuck; k++) {
+      const h = dt / steps; a.vel.y -= 14 * h; a.pos.addScaledVector(a.vel, h);
+      if (isSolidId(getBlock(Math.floor(a.pos.x + 0.5), Math.floor(a.pos.y + 0.5), Math.floor(a.pos.z + 0.5)))) { a.stuck = 4; }   // sticks in the wall for a few seconds
+      else if (a.pos.y < Y_MIN - 5 || arrowHit(a)) gone = true;
+    }
+    a.mesh.position.copy(a.pos);
+    if (!a.stuck) a.mesh.lookAt(a.pos.x + a.vel.x, a.pos.y + a.vel.y, a.pos.z + a.vel.z);
+    if (gone) { scene.remove(a.mesh); arrows.splice(i, 1); }
+  }
 }
 function usePointer() {                                           // it flies towards the nearest gateway (it is not used up)
   if (ptrCd > 0) return;
@@ -1740,7 +1831,8 @@ function canHarvest(bid) { const bi = BLOCK_INFO[bid]; if (!bi || !bi.min) retur
 function dropFor(bid) {                                           // [item, count] or null (wrong tool = nothing drops)
   if (!canHarvest(bid) || bid === 25) return null;
   if (bid === 15) return [8, 1];                                  // a chest drops planks
-  if (bid === 18) return [104, 1 + (Math.random() < 0.5 ? 1 : 0)];  // coal ore drops coal
+  if (bid === 18 || bid === 30) return [104, 1 + (Math.random() < 0.5 ? 1 : 0)];  // coal ore drops coal
+  if (bid === 29) return [134, 1];                                // diamond ore drops a diamond
   if (isDoorId(bid)) return [10, 1];
   return [bid, 1];
 }
@@ -1807,10 +1899,10 @@ function doAttack() {
 }
 // ---------- player vs player ----------
 const kb = { x: 0, z: 0 };                       // knockback that fades out
-function hitPlayer(id) {
+function hitPlayer(id, bow) {
   const r = remotes.get(id); if (!r) return;
   r.flash = 0.25;                                 // show the hit right away
-  netSend({ t: 'hit', id });                      // the server checks distance and tells the victim
+  netSend(bow ? { t: 'hit', id, bow: 1 } : { t: 'hit', id });                      // the server checks distance and tells the victim
 }
 function onHurt(m) {                              // someone hit me
   if (!player.alive || player.invincible > 0) return;
@@ -1980,36 +2072,70 @@ function pickVillager() {
 
 
 // ---------- buckets and flowing water / lava ----------
-const flows = [], NB6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-function startFlow(x, y, z, id) { flows.push({ id, q: [[x, y, z, 0]], placed: 0, t: 0, max: id === 16 ? 70 : 36, seen: new Set() }); }
-function updateFlows(dt) {
-  for (let i = flows.length - 1; i >= 0; i--) {
-    const f = flows[i]; f.t += dt; if (f.t < 0.12) continue; f.t = 0;
-    for (let k = 0; k < 2 && f.q.length && f.placed < f.max; k++) {
-      const [x, y, z, d] = f.q.shift(), key = x + ',' + y + ',' + z;
-      if (f.seen.has(key)) continue; f.seen.add(key);
-      if (getBlock(x, y, z) !== 0) continue;                                              // only flows into empty space
-      const other = f.id === 16 ? 17 : 16; let place = f.id;
-      for (const [dx, dy, dz] of NB6) if (getBlock(x + dx, y + dy, z + dz) === other) place = 3;   // water meets lava: stone
-      if (!setBlock(x, y, z, place)) continue;
-      netBlock(x, y, z, place); f.placed++;
-      if (place !== f.id) continue;
-      if (getBlock(x, y - 1, z) === 0) f.q.push([x, y - 1, z, d]);                       // falls down first
-      else if (d < (f.id === 16 ? 4 : 2)) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (getBlock(x + dx, y, z + dz) === 0) f.q.push([x + dx, y, z + dz, d + 1]);
+const NB6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]], H4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+// Water and lava really flow: sources spread sideways (water 7 blocks, lava 3), fall down, drain when the source is gone, and water + lava make stone.
+// Only the player who changed something drives the simulation; the results are sent like any other block change, so everybody sees the same.
+const FLQ = [new Set(), new Set(), new Set()], FLT = [0, 0, 0], FLP = [0.1, 0.8, 0.15], FLCAP = [3, 3, 2], FL = { busy: false };   // 0 water, 1 lava, 2 falling sand
+function fluidAt(x, y, z) { return y < Y_MIN || y >= Y_MIN + Y_H || !chunks.has(ckey(x >> 4, z >> 4)) ? -1 : getBlock(x, y, z); }   // -1: outside the loaded world, counts as a wall
+function fluidNudge(x, y, z) {
+  for (const [dx, dy, dz] of [[0, 0, 0], ...NB6]) { const k = (x + dx) + ',' + (y + dy) + ',' + (z + dz); if (FLQ[0].size < 20000) { FLQ[0].add(k); FLQ[1].add(k); FLQ[2].add(k); } }
+}
+function fluidStep(x, y, z, W) {
+  const cur = fluidAt(x, y, z); if (cur < 0) return false;
+  const lv = W ? wLvl : lLvl, ov = W ? lLvl : wLvl, maxL = W ? 7 : 3, base = W ? 33 : 40;
+  const curL = lv(cur), curO = ov(cur) >= 0;
+  if (cur !== 0 && curL < 0 && !curO) return false;                       // a solid block
+  if (curL === 0) return false;                                           // a source never changes
+  let want = -1;
+  if (lv(fluidAt(x, y + 1, z)) >= 0) want = 1;                            // fed from above: falls
+  else for (const [dx, dz] of H4) {
+    const n = fluidAt(x + dx, y, z + dz), l = lv(n); if (l < 0 || l + 1 > maxL) continue;
+    const b = fluidAt(x + dx, y - 1, z + dz);
+    if (b !== 0 && !(lv(b) > 0) && (want < 0 || l + 1 < want)) want = l + 1;   // it only spreads sideways when it rests on something
+  }
+  let to = cur;
+  if (want < 0) { if (curL > 0) to = 0; }                                  // nothing feeds it any more: it drains
+  else if (curO) to = 3;                                                   // meets the other liquid: stone
+  else {
+    let touch = false; for (const [dx, dy, dz] of NB6) if (ov(fluidAt(x + dx, y + dy, z + dz)) >= 0) touch = true;
+    to = touch ? 3 : base + want - 1;
+  }
+  if (to === cur) return false;
+  if (!setBlock(x, y, z, to)) return false;
+  netBlock(x, y, z, to); fluidNudge(x, y, z);
+  return true;
+}
+function sandStep(x, y, z) {                                              // sand with nothing solid under it falls one block (through water too)
+  if (fluidAt(x, y, z) !== 4) return false;
+  const b = fluidAt(x, y - 1, z); if (b !== 0 && !isLiquid(b)) return false;
+  if (!setBlock(x, y - 1, z, 4)) return false; setBlock(x, y, z, 0);
+  netBlock(x, y - 1, z, 4); netBlock(x, y, z, 0); fluidNudge(x, y - 1, z); fluidNudge(x, y, z);
+  return true;
+}
+function updateFluids(dt) {
+  for (let w = 0; w < 3; w++) {
+    FLT[w] += dt; if (FLT[w] < FLP[w]) continue; FLT[w] = 0;
+    const q = FLQ[w]; if (!q.size) continue;
+    let changed = 0, looked = 0; FL.busy = true;
+    for (const k of q) {
+      q.delete(k); if (++looked > 400) break;
+      const [x, y, z] = k.split(',').map(Number);
+      if ((w === 2 ? sandStep(x, y, z) : fluidStep(x, y, z, w === 0)) && ++changed >= FLCAP[w]) break;   // only a few changes per tick (the server limits block messages)
     }
-    if (!f.q.length || f.placed >= f.max) flows.splice(i, 1);
+    FL.busy = false;
   }
 }
 function aimRay() { if (vrAim) return { o: vrAim.o, d: vrAim.d }; camera.getWorldDirection(_dir); return { o: camPos(), d: _dir }; }
 function bucketUse() {
   if (selectedType === 127) {                                                              // empty bucket: scoop up a liquid block
     const a = aimRay(), h = raycastVoxel(a.o, a.d, 5, true); if (!h) return;
-    const id = getBlock(h.x, h.y, h.z); if (!isLiquid(id)) return;
+    const id = getBlock(h.x, h.y, h.z); if (id !== 16 && id !== 17) return;                  // only a source can be scooped up
     setBlock(h.x, h.y, h.z, 0); netBlock(h.x, h.y, h.z, 0);
     inv[127]--; addItem(id === 16 ? 128 : 129, 1);
   } else if (target && target.px !== null) {                                              // full bucket: pour it out, it flows on its own
-    const id = selectedType === 128 ? 16 : 17;
-    startFlow(target.px, target.py, target.pz, id);
+    const id = selectedType === 128 ? 16 : 17, cur = getBlock(target.px, target.py, target.pz);
+    if (cur !== 0 && !isLiquid(cur)) return;
+    setBlock(target.px, target.py, target.pz, id); netBlock(target.px, target.py, target.pz, id);       // a new source: it spreads by itself
     inv[selectedType]--; addItem(127, 1);
   }
 }
@@ -2024,7 +2150,9 @@ const RECIPES = [
   recipe(121, 1, { 8: 1, 103: 2 }, 'table'), recipe(122, 1, { 3: 1, 103: 2 }, 'table'), recipe(123, 1, { 105: 1, 103: 2 }, 'table'),
   recipe(124, 1, { 8: 2, 103: 1 }, 'table'), recipe(125, 1, { 3: 2, 103: 1 }, 'table'), recipe(126, 1, { 105: 2, 103: 1 }, 'table'),
   recipe(105, 1, { 19: 1 }, 'furnace', true), recipe(106, 1, { 20: 1 }, 'furnace', true), recipe(23, 1, { 4: 1 }, 'furnace', true), recipe(7, 1, { 2: 2 }, 'furnace', true),
-  recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true), recipe(131, 1, { 130: 1 }, 'furnace', true), recipe(133, 1, { 132: 50 })
+  recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true), recipe(131, 1, { 130: 1 }, 'furnace', true), recipe(133, 1, { 132: 50 }),
+  recipe(105, 1, { 31: 1 }, 'furnace', true), recipe(106, 1, { 32: 1 }, 'furnace', true),
+  recipe(135, 1, { 134: 3, 103: 2 }, 'table'), recipe(136, 1, { 134: 3, 103: 2 }, 'table'), recipe(137, 1, { 134: 1, 103: 2 }, 'table'), recipe(138, 1, { 134: 2, 103: 1 }, 'table')
 ];
 function stationNear(kind) {
   const id = kind === 'table' ? 21 : 22, px = Math.round(player.pos.x), py = Math.round(player.pos.y + 0.5), pz = Math.round(player.pos.z);
@@ -2166,6 +2294,7 @@ function toggleDoor(x, y, z) {
 function doPlace() {
   if (!player.alive) return;
   if (selectedType === 133) { usePointer(); return; }
+  if (selectedType === 114) { shootBow(); return; }
   const aim = vrAim ? vrAim.o : camPos();
   const vh = pickVillager(), vd0 = target ? Math.hypot(target.x - aim.x, target.y - aim.y, target.z - aim.z) - 0.5 : Infinity;
   if (vh && vh.dist < vd0) { villagerSay(vh.vl, 'talk'); return; }                     // talk to a villager
@@ -2177,7 +2306,7 @@ function doPlace() {
   if (selectedType >= 100) return;                                                       // tools and other items are not blocks
   if (!target || target.px === null) return;
   const { px, py, pz } = target;
-  if (getBlock(px, py, pz) !== 0) return;
+  if (getBlock(px, py, pz) !== 0 && !isLiquid(getBlock(px, py, pz))) return;       // you can build into water
   if (!selectedType || inv[selectedType] < 1) return;            // nothing to place
   if (selectedType === 10) {                         // a door is two blocks tall
     if (getBlock(px, py + 1, pz) !== 0 || py + 1 - Y_MIN >= Y_H) return;
@@ -2193,12 +2322,13 @@ function doPlace() {
   setBlock(px, py, pz, selectedType);
   netBlock(px, py, pz, selectedType);
   inv[selectedType]--; renderInv();
+  checkBannedShape(px, py, pz);
 }
 
 // physics blocks (Q)
 const blockColors = [0xe74c3c, 0x3498db, 0xf39c12, 0x9b59b6, 0x1abc9c, 0xe67e22, 0xff69b4];
 const BOX_GEO = new THREE.BoxGeometry(1, 1, 1);
-function spawnBlock() {
+function spawnBlock() {                                    // (no longer reachable: the Q key and the button were removed)
   if (!player.alive) return;
   const col = blockColors[Math.floor(Math.random() * blockColors.length)];
   const mesh = new THREE.Mesh(BOX_GEO, new THREE.MeshLambertMaterial({ color: col }));
@@ -2208,6 +2338,24 @@ function spawnBlock() {
   scene.add(mesh);
   physicsBlocks.push({ mesh, pos, vel: new THREE.Vector3((Math.random() - 0.5) * 3, 4, (Math.random() - 0.5) * 3), hw: 0.5, h: 1, onGround: false });
   if (physicsBlocks.length > 25) { const o = physicsBlocks.shift(); scene.remove(o.mesh); o.mesh.material.dispose(); }
+}
+// ---------- banned shape: 3 blocks in a row with a column of 2 on top of the middle one is removed the moment it is completed ----------
+const BAN_CELLS = [[0, 0], [1, 0], [2, 0], [1, 1], [1, 2]], BAN_AIR = [[0, 1], [2, 1], [0, 2], [2, 2], [1, 3]];
+function isPlacedBlock(x, y, z) {                                 // a block somebody built (terrain is not stored as an edit)
+  const ed = chunkEdits.get(ckey(x >> 4, z >> 4)), ly = y - Y_MIN; if (!ed || ly < 0 || ly >= Y_H) return false;
+  const v = ed.get((ly * 16 + (z & 15)) * 16 + (x & 15)); return !!v && !isLiquid(v) && v !== 28;
+}
+function checkBannedShape(px, py, pz) {
+  for (const [ax, az] of [[1, 0], [0, 1]]) for (const [ci, cj] of BAN_CELLS) {
+    const ox = px - ci * ax, oy = py - cj, oz = pz - ci * az;
+    let ok = true;
+    for (const [i, j] of BAN_CELLS) if (!isPlacedBlock(ox + i * ax, oy + j, oz + i * az)) { ok = false; break; }
+    if (ok) for (const [i, j] of BAN_AIR) if (getBlock(ox + i * ax, oy + j, oz + i * az) !== 0) { ok = false; break; }
+    if (!ok) continue;
+    for (const [i, j] of BAN_CELLS) { const x = ox + i * ax, y = oy + j, z = oz + i * az; setBlock(x, y, z, 0); netBlock(x, y, z, 0); }
+    toast('💥 That shape is not allowed'); return true;
+  }
+  return false;
 }
 function resolveBlockCollisions() {
   for (let i = 0; i < physicsBlocks.length; i++) for (let j = i + 1; j < physicsBlocks.length; j++) {
@@ -2231,7 +2379,6 @@ document.addEventListener('keydown', e => {
   if (!chatOpen && (e.code === 'KeyT' || e.code === 'Enter') && !lobbyOpen && !settingsOpen && !craftOpen && player.alive) { e.preventDefault(); openChat(); return; }
   if (craftOpen && e.code !== 'KeyE' && e.code !== 'Escape') return; // typing a name/password must not move the player
   keys[e.code] = true;
-  if (e.code === 'KeyQ') spawnBlock();
   if (e.code === 'KeyG' && !lobbyOpen && !settingsOpen) tossSelected(e.shiftKey);
   if (e.code === 'KeyX' && !lobbyOpen && !settingsOpen && selectedType) trashId(selectedType, true);
   if (e.code === 'KeyE') craftOpen ? closeCraft() : openCraft();
@@ -2305,7 +2452,6 @@ function bindBtn(id, down, up) {
 bindBtn('btn-jump', () => touch.jump = true, () => touch.jump = false);
 bindBtn('btn-break', () => { doAttack(); touch.breakHeld = true; touch.breakT = 0.35; }, () => touch.breakHeld = false);
 bindBtn('btn-place', () => doPlace());
-bindBtn('btn-spawn', () => spawnBlock());
 
 // =====================================================
 // SETTINGS
@@ -2414,13 +2560,11 @@ function admStatus(k) {
   const v = el('v-adm'); if (!v) return;
   v.textContent = isAdmin ? t('adm_ok') : (key ? t(key) : '');
   v.style.color = isAdmin ? '#4CAF50' : (key === 'adm_bad' ? '#ff6666' : '#aaa');
-  el('adm-reset').style.display = isAdmin ? 'block' : 'none';
 }
 if (adminMode) {
   el('admin-section').style.display = 'block';
   el('adm-login').addEventListener('click', () => { admKey = ''; netSend({ t: 'admin', pw: el('adm-pw').value }); });
   el('adm-pw').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') el('adm-login').click(); });
-  el('adm-reset').addEventListener('click', () => { if (isAdmin && confirm(t('adm_confirm'))) netSend({ t: 'reset' }); });
 }
 const DEFAULT_SERVER = 'wss://sigmacraft-servers.onrender.com';
 function netUrl() {
@@ -2444,7 +2588,7 @@ function netStatus() {
   if (lobbyOpen) renderLobby();
 }
 function netSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
-function netBlock(x, y, z, b, d, n) { bkSet(x, y, z, b, Date.now() + clockOff); const m = { t: 'block', x, y, z, b }; if (d) { m.d = d; if (n > 1) m.n = n; } netSend(m); }
+function netBlock(x, y, z, b, d, n) { if (!FL.busy) fluidNudge(x, y, z); bkSet(x, y, z, b, Date.now() + clockOff); const m = { t: 'block', x, y, z, b }; if (d) { m.d = d; if (n > 1) m.n = n; } netSend(m); }
 
 function showLobby() {
   lobbyOpen = true; el('lobby').style.display = 'flex';
@@ -2712,6 +2856,40 @@ function makeNameSprite(name) {
   sp.scale.set(2, 0.5, 1); sp.renderOrder = 10;
   return sp;
 }
+// ---------- update check: the live index.html carries a build id in <meta name="sbx-build">; if it is newer than ours, offer to install it ----------
+const BUILD = (document.querySelector('meta[name="sbx-build"]') || {}).content || '';
+let updShown = '', lastChk = 0;
+el('v-build').textContent = BUILD || '?';
+async function checkUpdate(manual) {
+  lastChk = Date.now();
+  try {
+    const u = new URL(location.href); u.searchParams.set('chk', Date.now());
+    const r = await fetch(u.toString(), { cache: 'no-store', headers: { Range: 'bytes=0-4095' } });
+    let txt = '';
+    if (r.body && r.body.getReader) {                              // only the first few KB are needed, never the whole page
+      const rd = r.body.getReader(), dec = new TextDecoder(); let n = 0;
+      while (n < 8000 && !/name="sbx-build" content="[^"]+"/.test(txt)) { const { done, value } = await rd.read(); if (done) break; txt += dec.decode(value, { stream: true }); n += value.length; }
+      try { rd.cancel(); } catch (e) {}
+    } else txt = (await r.text()).slice(0, 8000);
+    const m = /name="sbx-build" content="([^"]+)"/.exec(txt);
+    if (!m) { if (manual) toast('Could not check for updates'); return; }
+    if (BUILD && m[1] > BUILD) { updShown = m[1]; el('updbar').style.display = 'block'; if (manual) toast('🔄 New version found'); }
+    else if (manual) toast('✅ You have the newest version');
+  } catch (e) { if (manual) toast('Could not check for updates (offline?)'); }
+}
+async function installUpdate() {                                    // throw away cached copies and reload: the world and your inventory are kept
+  try { savePos(); } catch (e) {}
+  try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
+  try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) {}
+  const u = new URL(location.href); u.searchParams.delete('chk'); u.searchParams.set('u', Date.now());
+  location.replace(u.toString());
+}
+el('updgo').addEventListener('click', installUpdate);
+el('updno').addEventListener('click', () => { el('updbar').style.display = 'none'; });
+el('btn-upd').addEventListener('click', () => checkUpdate(true));
+setTimeout(() => checkUpdate(false), 8000);
+setInterval(() => { if (!updShown) checkUpdate(false); }, 600000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !updShown && Date.now() - lastChk > 120000) checkUpdate(false); });
 // ---------- background music (music.mp3 next to index.html; starts after the first click/tap because browsers don't allow sound before that) ----------
 const bgm = new Audio(), lush = new Audio();
 bgm.loop = lush.loop = true; bgm.preload = lush.preload = 'none'; // the two tracks are stored inside this file (base64) so index.html is all you need; they are decoded on the first click
@@ -3449,11 +3627,11 @@ function update() {
   player.vel.x = (fx * f + rx * sd) * player.speed + kb.x;
   player.vel.z = (fz * f + rz * sd) * player.speed + kb.z;
   const kd = Math.exp(-5 * dt); kb.x *= kd; kb.z *= kd;
-  if ((keys['Space'] || touch.jump || (xrActive && vr.jump)) && player.onGround && !(getBlock(Math.round(player.pos.x), Math.floor(player.pos.y + 0.5), Math.round(player.pos.z)) === 16)) { player.vel.y = player.jumpForce; player.onGround = false; }
+  if ((keys['Space'] || touch.jump || (xrActive && vr.jump)) && player.onGround && !(getBlock(Math.round(player.pos.x), Math.floor(player.pos.y + 0.5), Math.round(player.pos.z)) === 16 || isWaterId(getBlock(Math.round(player.pos.x), Math.floor(player.pos.y + 0.5), Math.round(player.pos.z))))) { player.vel.y = player.jumpForce; player.onGround = false; }
   {
     const bx = Math.round(player.pos.x), bz = Math.round(player.pos.z);
     const mid = getBlock(bx, Math.floor(player.pos.y + 0.9 + 0.5), bz), low = getBlock(bx, Math.floor(player.pos.y + 0.2 + 0.5), bz);
-    const wet = mid === 16 || low === 16, hot = mid === 17 || low === 17;
+    const wet = isWaterId(mid) || isWaterId(low), hot = isLavaId(mid) || isLavaId(low);
     if (wet || hot) {
       player.vel.x *= 0.55; player.vel.z *= 0.55;
       player.vel.y = Math.max(player.vel.y - 6 * dt, -3);
@@ -3461,7 +3639,7 @@ function update() {
       if (hot && player.alive) takeDamage('lava');
     } else player.vel.y = Math.max(player.vel.y - 15 * dt, -40);
     const eye = getBlock(bx, Math.floor(player.pos.y + EYE + 0.5), bz), uw = el('uw');
-    if (eye === 16 || eye === 17) { uw.style.display = 'block'; uw.style.background = eye === 16 ? 'rgba(30,80,200,0.35)' : 'rgba(220,60,10,0.6)'; } else if (uw.style.display !== 'none') uw.style.display = 'none';
+    if (isLiquid(eye)) { uw.style.display = 'block'; uw.style.background = isWaterId(eye) ? 'rgba(30,80,200,0.35)' : 'rgba(220,60,10,0.6)'; } else if (uw.style.display !== 'none') uw.style.display = 'none';
   }
 
   const chunkReady = chunks.has(ckey(Math.floor(player.pos.x + 0.5) >> 4, Math.floor(player.pos.z + 0.5) >> 4));
@@ -3470,12 +3648,12 @@ function update() {
     player.onGround = r.ground;
   }
   if (player.pos.y < Y_MIN - 12) { if (player.pos.x >= VOID_X0) voidFall(); else respawnPlayer(); }
-  portalCheck(dt); updatePointers(dt); musicTick(dt);
+  portalCheck(dt); updatePointers(dt); updateArrows(dt); updateFluids(dt); musicTick(dt);
   if (xrActive) vrPostUpdate();
   else { camera.position.set(player.pos.x, player.pos.y + EYE - deathF() * 1.1, player.pos.z); camera.updateMatrixWorld(); }
 
   updateTarget();
-  updateMining(dt); updateFlows(dt);
+  updateMining(dt);
   updateMonsters(dt);
   updateDrops(dt);
   updateVillagers(dt); netEntsTick(dt); updateCorpses(dt); voiceUpdate(); updateHeldLocal();
