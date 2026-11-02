@@ -332,7 +332,7 @@ function handle(p, m) {
     const q = Number.isInteger(m.id) ? room.players.get(m.id) : null;
     if (!q || q === p || Date.now() - q.joinedAt < 3000) return;      // 3 seconds of spawn protection
     const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
-    if (Math.hypot(dx, dy, dz) > 6.5) return;                         // too far away (reach is 4 blocks, plus lag)
+    if (Math.hypot(dx, dy, dz) > (m.bow ? 80 : 6.5)) return;      // too far away (reach is 4 blocks, plus lag; arrows fly further)
     const h = Math.hypot(dx, dz) || 1;
     send(q, { t: 'hurt', from: p.id, name: p.name, kx: dx / h, kz: dz / h });
     for (const o of room.players.values()) if (o !== p && o !== q) send(o, { t: 'hit', id: q.id });
@@ -363,12 +363,6 @@ function handle(p, m) {
       accepted.push([x, y, z, b, ts]);
     }
     if (accepted.length) { markDirty(); broadcast(room, { t: 'edits', e: accepted }, p.id); }
-  } else if (m.t === 'reset') {
-    if (!p.admin) return;
-    console.log(`World reset by ${p.name} in room ${room.name} (${room.edits.size} edits deleted)`);
-    room.edits.clear(); dropsOf(room).clear(); room.resetAt = Date.now(); markDirty();
-    broadcast(room, { t: 'reset', r: room.resetAt });
-    saveAll(true);
   }
 }
 
