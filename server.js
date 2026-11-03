@@ -188,7 +188,7 @@ function broadcast(room, obj, exceptId) {
   const s = JSON.stringify(obj);
   for (const p of room.players.values()) if (p.id !== exceptId && p.ws.readyState === 1) p.ws.send(s);
 }
-const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, skin: p.skin || null, held: p.held || 0 });
+const pub = p => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, skin: p.skin || null, held: p.held || 0, hm: p.hm || 0 });
 function roomList() {
   return [...rooms.values()]
     .map(r => ({ id: r.id, name: r.name, n: r.players.size, max: MAX_PLAYERS, lock: !!r.pw }))
@@ -266,8 +266,8 @@ function handle(p, m) {
     if (!Array.isArray(m.l) || m.l.length > 60) return;
     const ents = room.ents || (room.ents = new Map()), out = [], lost = [];
     for (const e of m.l) {
-      if (!Array.isArray(e) || typeof e[0] !== 'string' || !/^[vms][\w.,-]{0,40}$/.test(e[0])) continue;
-      const k = e[1] === 1 || e[1] === 2 ? e[1] : 0, x = Number(e[2]), y = Number(e[3]), z = Number(e[4]), yaw = Number(e[5]);
+      if (!Array.isArray(e) || typeof e[0] !== 'string' || !/^[vmscf][\w.,-]{0,40}$/.test(e[0])) continue;
+      const k = e[1] >= 1 && e[1] <= 6 ? e[1] : 0, x = Number(e[2]), y = Number(e[3]), z = Number(e[4]), yaw = Number(e[5]);
       if (![x, y, z, yaw].every(Number.isFinite) || Math.abs(x) > 30000 || Math.abs(z) > 30000 || Math.abs(y) > 500) continue;
       const cur = ents.get(e[0]);
       if (cur && cur.o !== p.id && now - cur.t < 3000 && room.players.has(cur.o)) { lost.push([e[0], cur.o]); continue; }
@@ -281,19 +281,27 @@ function handle(p, m) {
   } else if (m.t === 'ehit') {          // somebody hit a monster that another player simulates: pass it on to that player
     if (p.hitTokens < 1) return; p.hitTokens--;
     const e = typeof m.id === 'string' && room.ents ? room.ents.get(m.id) : null, d = Number(m.d);
-    if (!e || e.k < 1 || e.o === p.id || !Number.isFinite(d)) return;
+    if (!e || e.o === p.id || !Number.isFinite(d)) return;
     if (Math.hypot(p.x - e.x, p.z - e.z) > 12) return;
     const q = room.players.get(e.o); if (!q) return;
     send(q, { t: 'ehit', id: m.id, d: Math.max(1, Math.min(20, d)), kx: Number(m.kx) || 0, kz: Number(m.kz) || 0 });
   } else if (m.t === 'mobdrop') {       // an animal died: its meat drops for everybody
     const now = Date.now(); if (now - (p.mobT || 0) < 100) return; p.mobT = now;
     const n = int(m.n, 1, 3), x = Number(m.x), y = Number(m.y), z = Number(m.z);
-    if ((m.i !== 130 && m.i !== 132) || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
+    if ((m.i !== 100 && m.i !== 130 && m.i !== 132 && m.i !== 139) || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
     for (let k = 0; k < n; k++) addDrop(room, m.i, x, y, z);
+  } else if (m.t === 'boom') {         // a creeper exploded: the others see and feel it (the blocks arrive as normal block changes)
+    const now = Date.now(); if (now - (p.boomT || 0) < 250) return; p.boomT = now;
+    const x = Number(m.x), y = Number(m.y), z = Number(m.z);
+    if (![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
+    for (const q of room.players.values()) if (q !== p && Math.hypot(q.x - x, q.z - z) < 90) send(q, { t: 'boom', x, y, z });
   } else if (m.t === 'ptr') {           // somebody throws a gateway pointer: the others see it fly
     const now = Date.now(); if (now - (p.ptrT || 0) < 1000) return; p.ptrT = now;
     const o = {}; for (const k of ['x', 'y', 'z', 'ux', 'uz', 'len', 'gx', 'gz']) { o[k] = Number(m[k]); if (!Number.isFinite(o[k])) return; }
     broadcast(room, { t: 'ptr', id: p.id, x: o.x, y: o.y, z: o.z, ux: o.ux, uz: o.uz, len: Math.min(70, Math.max(0, o.len)), gx: o.gx, gz: o.gz, arr: m.arr ? 1 : 0 }, p.id);
+  } else if (m.t === 'hm') {            // VR hand movement: the others see a body without legs
+    const now = Date.now(); if (now - (p.hmT || 0) < 200) return; p.hmT = now;
+    p.hm = m.on ? 1 : 0; broadcast(room, { t: 'hm', id: p.id, on: p.hm }, p.id);
   } else if (m.t === 'held') {          // the item in a player's hand
     const now = Date.now(); if (now - (p.heldT || 0) < 80) return; p.heldT = now;
     const i = int(m.i, 0, 200); if (i === null) return;
