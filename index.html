@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-02T08:30">
+<meta name="sbx-build" content="2026-11-03T10:00">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -208,6 +208,14 @@
   #btn-jump  { right: 22px;  bottom: 44px; width: 74px; height: 74px; }
   #btn-break { right: 22px;  bottom: 134px; }
   #btn-place { right: 104px; bottom: 96px; }
+  #row-layout { display: none; } body.touch #row-layout { display: flex; }
+  #row-layout button { flex: 1; padding: 10px; border: 0; border-radius: 8px; background: #3a5a9a; color: #fff; font-size: 15px; cursor: pointer; }
+  #lay-bar { display: none; position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 300; background: rgba(15,18,28,0.95); color: #fff; padding: 8px 10px; border-radius: 12px; font: 13px Arial, sans-serif; gap: 8px 12px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: 96vw; border: 1px solid #667; }
+  #lay-bar label { display: flex; align-items: center; gap: 5px; } #lay-bar input[type=range] { width: 90px; }
+  #lay-bar button { padding: 7px 11px; border: 0; border-radius: 7px; background: #445; color: #fff; font-size: 13px; cursor: pointer; } #lay-bar #lay-done { background: #2d7d46; font-weight: bold; }
+  body.lay-edit .tbtn, body.lay-edit #joy-base, body.lay-edit #inv { outline: 2px dashed rgba(255,255,160,0.9); touch-action: none; }
+  body.lay-edit #inv { display: flex !important; } body.lay-edit #touch-ui { display: block; }
+  body.lay-edit .lay-sel { outline: 3px solid #4f8 !important; }
   @media (max-width: 520px) { .setting-row label { min-width: 100px; font-size: 14px; } }
 </style>
 </head>
@@ -257,6 +265,7 @@
     <input type="range" id="s-fog" min="20" max="800" step="10" value="60">
     <span class="setting-val" id="v-fog">60m</span>
   </div>
+  <div class="setting-row" id="row-layout"><button id="btn-layout">🎮 Customize touch buttons &amp; inventory position</button></div>
   <div class="setting-row">
     <label>🎵 Music</label>
     <input type="range" id="s-music" min="0" max="100" step="5" value="35">
@@ -307,6 +316,7 @@
   <button id="close-settings" data-i18n="close">✅ Close</button>
 </div>
 
+<div id="lay-bar"><b>🎮 Drag a button to move it</b><label>Size <input type="range" id="lay-size" min="40" max="250" step="5" value="100"></label><label>Opacity <input type="range" id="lay-op" min="20" max="100" step="5" value="100"></label><button id="lay-mirror">↔ Mirror</button><button id="lay-reset">Reset</button><button id="lay-done">✅ Done</button></div>
 <div id="touch-ui">
   <div id="joy-base"><div id="joy-knob"></div></div>
   <div class="tbtn" id="btn-jump">⬆️</div>
@@ -438,7 +448,7 @@ scene.add(ambientLight);
 // =====================================================
 // PROCEDURAL TEXTURE ATLAS (16x16 pixel tiles)
 // =====================================================
-const TILE = 16, NT = 75;
+const TILE = 16, NT = 77;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width = TILE * NT; atlasCanvas.height = TILE;
 const actx = atlasCanvas.getContext('2d');
@@ -654,6 +664,12 @@ for (let i = 0; i < 3; i++) {
     for (let i = 0; i < 7; i++) { const bx = 1 + ((rnd() * 13) | 0), by = 1 + ((rnd() * 13) | 0); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (rnd() < 0.85) { const k = 0.85 + rnd() * 0.3; PX(tile, bx + dx, by + dy, col[0] * k, col[1] * k, col[2] * k); } }
   }
 }
+// 75 raw fish, 76 cooked fish
+for (const [tile, c, belly] of [[75, [120, 150, 170], [205, 215, 220]], [76, [168, 108, 60], [214, 168, 110]]]) {
+  BLOB(tile, 7.5, 8.5, 5.8, 3.2, c); BLOB(tile, 7.5, 10, 4.6, 1.5, belly);
+  for (let i = 0; i < 3; i++) LN(tile, 12 + i, 8 - i * 2, 14, 8 - i * 3 - 1, 1, c);         // tail
+  PX(tile, 4, 7, 20, 20, 20); LN(tile, 8, 6, 8, 11, 1, [c[0] * 0.8, c[1] * 0.8, c[2] * 0.8]);
+}
 for (const [tile, liquid] of [[57, null], [58, [40, 110, 220]], [59, [255, 150, 30]]]) {
   RECT(tile, 4, 6, 11, 13, [176, 176, 184]); RECT(tile, 5, 14, 10, 14, [150, 150, 158]); LN(tile, 3, 4, 12, 4, 1, [140, 140, 148]); LN(tile, 3, 4, 3, 6, 1, [140, 140, 148]); LN(tile, 12, 4, 12, 6, 1, [140, 140, 148]);
   if (liquid) RECT(tile, 5, 5, 10, 7, liquid);
@@ -736,7 +752,7 @@ const ITEMDEF = [
   [127, 57, 'Bucket', 'Eimer'], [128, 58, 'Water bucket', 'Wassereimer'], [129, 59, 'Lava bucket', 'Lavaeimer'],
   [130, 60, 'Raw mutton', 'Rohes Hammelfleisch'], [131, 61, 'Cooked mutton', 'Gebratenes Hammelfleisch'],
   [132, 62, 'ද', 'ද'], [133, 63, 'Gateway pointer', 'Tor-Zeiger'],
-  [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
+  [139, 75, 'Raw fish', 'Roher Fisch'], [140, 76, 'Cooked fish', 'Gebratener Fisch'], [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
 ];
 const ITEMS = {};
 const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'Stein'], 4: ['Sand', 'Sand'], 5: ['Wood', 'Holz'], 6: ['Snow', 'Schnee'], 7: ['Brick', 'Ziegel'], 8: ['Planks', 'Bretter'], 9: ['Leaves', 'Laub'],
@@ -745,7 +761,7 @@ const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'S
 for (const id in BLOCK_NAMES) ITEMS[id] = { en: BLOCK_NAMES[id][0], de: BLOCK_NAMES[id][1] };
 for (const [id, tile, en, de] of ITEMDEF) { BLOCKS[id] = { faces: [tile, tile, tile, tile, tile, tile], icon: tile }; ITEMS[id] = { en, de }; }
 const iname = id => (ITEMS[id] && ITEMS[id][lang]) || ('#' + id);
-const FOOD = { 100: 5, 101: 4, 102: 3, 107: 3, 108: 8, 109: 3, 110: 8, 111: 2, 112: 6, 130: 3, 131: 7 };      // hunger points restored (the bar holds 20)
+const FOOD = { 100: 5, 101: 4, 102: 3, 107: 3, 108: 8, 109: 3, 110: 8, 111: 2, 112: 6, 130: 3, 131: 7, 139: 2, 140: 6 };      // hunger points restored (the bar holds 20)
 const MAX_BLOCK = 63;
 // how hard each block is to break, and which tool is fast on it (min = lowest tool tier that makes it drop something)
 const BLOCK_INFO = { 1: { h: 0.6, t: 'shovel' }, 2: { h: 0.5, t: 'shovel' }, 3: { h: 3, t: 'pick', min: 1 }, 4: { h: 0.5, t: 'shovel' }, 5: { h: 2, t: 'axe' }, 6: { h: 0.3, t: 'shovel' },
@@ -762,7 +778,7 @@ const wLvl = id => id === 16 ? 0 : (id >= 33 && id <= 39 ? id - 32 : -1);       
 const lLvl = id => id === 17 ? 0 : (id >= 40 && id <= 42 ? id - 39 : -1);       // lava: 0 = source, 1-3 = flowing
 const isWaterId = id => id === 16 || (id >= 33 && id <= 39), isLavaId = id => id === 17 || (id >= 40 && id <= 42);
 // ---------- Inventory: everything you mine drops as a small block; picking it up fills the corner panel ----------
-const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138];
+const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140];
 const inv = {}; for (const i of ITEM_IDS) inv[i] = 0;
 try {
   const sv = JSON.parse(localStorage.getItem('sbx_inv') || '{}');
@@ -1381,13 +1397,16 @@ function shootBow() {
 function arrowHit(a) {                                            // true when the arrow hit something and is used up
   for (const m of monsters) {
     if (m.dead) continue;
-    const hgt = m.kind === 2 ? 1.1 : 1.9;
+    const hgt = m.kind === 2 ? 1.1 : m.kind === 3 ? 0.8 : m.kind === 4 ? 0.35 : 1.9;
     if (Math.abs(a.pos.x - m.pos.x) < 0.5 && Math.abs(a.pos.z - m.pos.z) < 0.5 && a.pos.y > m.pos.y - 0.1 && a.pos.y < m.pos.y + hgt) {
       const l = Math.hypot(a.vel.x, a.vel.z) || 1, kx = a.vel.x / l, kz = a.vel.z / l, dmg = 5;
       if (m.net) netSend({ t: 'ehit', id: m.id, d: dmg, kx: +kx.toFixed(2), kz: +kz.toFixed(2) });
       else { m.hp -= dmg; m.kb = 0.35; m.vel.set(kx * 6, 3, kz * 6); if (m.hp <= 0) killMonster(m); }
       return true;
     }
+  }
+  for (const vl of villagers) {
+    if (Math.abs(a.pos.x - vl.x) < 0.4 && Math.abs(a.pos.z - vl.z) < 0.4 && a.pos.y > vl.v.L + 0.4 && a.pos.y < vl.v.L + 2.1) { const l = Math.hypot(a.vel.x, a.vel.z) || 1; hitVillager(vl, 5, a.vel.x / l, a.vel.z / l); return true; }
   }
   for (const [id, r] of remotes) {
     if (r.dead) continue;
@@ -1660,6 +1679,56 @@ function buildMonster(x, y, z) {
   monsters.push(m);
   return m;
 }
+// ---------- creepers: they walk up to you at night, hiss, swell and explode (and really blow holes into the ground) ----------
+const CR_G = { head: new THREE.BoxGeometry(0.5, 0.5, 0.5), body: new THREE.BoxGeometry(0.5, 0.72, 0.28), leg: new THREE.BoxGeometry(0.24, 0.38, 0.24), eye: new THREE.BoxGeometry(0.11, 0.11, 0.02), mouth: new THREE.BoxGeometry(0.12, 0.2, 0.02) };
+function buildCreeper(x, y, z) {
+  const g = new THREE.Group();
+  const green = new THREE.MeshLambertMaterial({ color: 0x4fa84a, emissive: 0x1a3a18 }), dark = new THREE.MeshBasicMaterial({ color: 0x0b140b });
+  const add = (geo, mat, px, py, pz, parent) => { const me = new THREE.Mesh(geo, mat); me.position.set(px, py, pz); me.castShadow = true; (parent || g).add(me); return me; };
+  add(CR_G.body, green, 0, 0.74, 0); add(CR_G.head, green, 0, 1.35, 0);
+  add(CR_G.eye, dark, -0.12, 1.4, 0.26); add(CR_G.eye, dark, 0.12, 1.4, 0.26); add(CR_G.mouth, dark, 0, 1.24, 0.26);
+  const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.13, 0.38, 0); legR.position.set(0.13, 0.38, 0); g.add(legL); g.add(legR);
+  for (const gr of [legL, legR]) { add(CR_G.leg, green, 0, -0.19, 0.2, gr); add(CR_G.leg, green, 0, -0.19, -0.2, gr); }
+  g.position.set(x, y, z); scene.add(g);
+  const m = { mesh: g, pos: g.position, vel: new THREE.Vector3(), hw: 0.3, h: 1.65, hp: 3, kb: 0, phase: Math.random() * 6, legL, legR, armL: { rotation: { x: 0 } }, armR: { rotation: { x: 0 } }, mat: green, id: '', net: null, nt: 0, kind: 5, fuse: 0 };
+  g.traverse(o => { o.userData.m = m; });
+  monsters.push(m);
+  return m;
+}
+const booms = [];
+function boomEffect(x, y, z) {
+  const me = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.8, depthWrite: false, fog: false }));
+  me.position.set(x, y, z); scene.add(me); booms.push({ me, t: 0 });
+}
+function updateBooms(dt) {
+  for (let i = booms.length - 1; i >= 0; i--) {
+    const b = booms[i]; b.t += dt; const f = b.t / 0.5; b.me.scale.setScalar(0.5 + f * 4); b.me.material.opacity = Math.max(0, 0.8 * (1 - f));
+    if (f >= 1) { scene.remove(b.me); b.me.geometry.dispose(); b.me.material.dispose(); booms.splice(i, 1); }
+  }
+}
+function boomHurt(x, y, z) {                                       // an explosion at (x,y,z): hurts and throws me if I am close
+  if (!player.alive) return;
+  const dx = player.pos.x - x, dz = player.pos.z - z, d = Math.hypot(dx, player.pos.y + 0.9 - y, dz);
+  const hearts = d < 2.2 ? 4 : d < 3.5 ? 2 : d < 5 ? 1 : 0; if (!hearts) return;
+  for (let k = 0; k < hearts; k++) { player.invincible = 0; takeDamage(); if (!player.alive) break; }
+  const l = Math.hypot(dx, dz) || 1; kb.x = dx / l * 10; kb.z = dz / l * 10; if (player.alive) { player.vel.y = 7; player.onGround = false; }
+}
+function explodeCreeper(m) {
+  const cx = Math.round(m.pos.x), cy = Math.floor(m.pos.y), cz = Math.round(m.pos.z), R = 2.5;   // centred on the ground layer under it, so it digs a crater
+  boomEffect(m.pos.x, m.pos.y + 0.8, m.pos.z); boomHurt(m.pos.x, m.pos.y + 0.8, m.pos.z);
+  let n = 0;
+  for (let dy = -2; dy <= 2 && n < 25; dy++) for (let dx = -2; dx <= 2 && n < 25; dx++) for (let dz = -2; dz <= 2 && n < 25; dz++) {
+    const d = Math.hypot(dx, dy * 1.5, dz); if (d > R) continue;                  // about 5 blocks wide, only 1-2 deep
+    const x = cx + dx, y = cy + dy, z = cz + dz, id = getBlock(x, y, z);
+    if (!id || id === 25 || id === 27 || id === 28) continue;                      // spawners and gateways survive
+    if (Math.random() > 0.95 - d * 0.15) continue;                                   // ragged crater: the edge only partly breaks
+    if (setBlock(x, y, z, 0)) { netBlock(x, y, z, 0); n++; }
+  }
+  netSend({ t: 'boom', x: +m.pos.x.toFixed(1), y: +(m.pos.y + 0.8).toFixed(1), z: +m.pos.z.toFixed(1) });
+  const i = monsters.indexOf(m); if (i >= 0) removeMonster(i);
+  if (netState === 'on') entNet.dead.push([m.id, 5, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), 0, 0]);
+  return n;
+}
 function buildSheep(x, y, z) {
   const g = new THREE.Group();
   const wool = new THREE.MeshLambertMaterial({ color: 0xf0f0f0, emissive: 0x2a2a2a }), skin = new THREE.MeshLambertMaterial({ color: 0xd9c7ac, emissive: 0x1e1a14 }), dark = new THREE.MeshLambertMaterial({ color: 0x222222 });
@@ -1690,7 +1759,80 @@ function trySpawnSheep() {
     return;
   }
 }
+const CAT_COLORS = [0xd98b3a, 0x2c2c32, 0xefefef, 0x8d8d97, 0xb9753a], FISH_COLORS = [0xe8782a, 0x7aa6c8, 0xd24a4a, 0xe3c548, 0x6fbf9a];
+const idHash = id => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return h; };
+const CAT_G = { body: new THREE.BoxGeometry(0.3, 0.28, 0.72), head: new THREE.BoxGeometry(0.28, 0.26, 0.26), ear: new THREE.BoxGeometry(0.07, 0.09, 0.05), leg: new THREE.BoxGeometry(0.09, 0.3, 0.09),
+  tail: new THREE.BoxGeometry(0.07, 0.07, 0.5), eye: new THREE.BoxGeometry(0.05, 0.05, 0.02), nose: new THREE.BoxGeometry(0.06, 0.04, 0.02) };
+function buildCat(x, y, z, id) {
+  const col = CAT_COLORS[idHash(id || '') % CAT_COLORS.length], g = new THREE.Group();
+  const fur = new THREE.MeshLambertMaterial({ color: col, emissive: 0x161616 }), dark = new THREE.MeshLambertMaterial({ color: 0x111111 }), pink = new THREE.MeshLambertMaterial({ color: 0xe9a1a8 });
+  const add = (geo, mat, px, py, pz, parent) => { const me = new THREE.Mesh(geo, mat); me.position.set(px, py, pz); me.castShadow = true; (parent || g).add(me); return me; };
+  add(CAT_G.body, fur, 0, 0.42, 0); add(CAT_G.head, fur, 0, 0.62, 0.45); add(CAT_G.ear, fur, -0.09, 0.8, 0.45); add(CAT_G.ear, fur, 0.09, 0.8, 0.45);
+  add(CAT_G.eye, dark, -0.07, 0.65, 0.59); add(CAT_G.eye, dark, 0.07, 0.65, 0.59); add(CAT_G.nose, pink, 0, 0.59, 0.59);
+  const tail = add(CAT_G.tail, fur, 0, 0.6, -0.55); tail.rotation.x = -0.6;
+  const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.1, 0.3, 0); legR.position.set(0.1, 0.3, 0); g.add(legL); g.add(legR);
+  for (const gr of [legL, legR]) { add(CAT_G.leg, fur, 0, -0.15, 0.27, gr); add(CAT_G.leg, fur, 0, -0.15, -0.27, gr); }
+  g.position.set(x, y, z); scene.add(g);
+  const m = { mesh: g, pos: g.position, vel: new THREE.Vector3(), hw: 0.25, h: 0.7, hp: 8, kb: 0, phase: Math.random() * 6, legL, legR, tail, id: id || '', net: null, nt: 0, kind: 3, wait: Math.random() * 3, moving: false, ang: 0 };
+  g.traverse(o => { o.userData.m = m; });
+  monsters.push(m);
+  return m;
+}
+const FISH_G = { body: new THREE.BoxGeometry(0.16, 0.2, 0.46), tail: new THREE.BoxGeometry(0.03, 0.24, 0.16), fin: new THREE.BoxGeometry(0.03, 0.12, 0.14), eye: new THREE.BoxGeometry(0.2, 0.05, 0.05) };
+function buildFish(x, y, z, id) {
+  const col = FISH_COLORS[idHash(id || '') % FISH_COLORS.length], g = new THREE.Group();
+  const body = new THREE.MeshLambertMaterial({ color: col, emissive: 0x222222 }), dark = new THREE.MeshLambertMaterial({ color: 0x101010 });
+  const add = (geo, mat, px, py, pz, parent) => { const me = new THREE.Mesh(geo, mat); me.position.set(px, py, pz); (parent || g).add(me); return me; };
+  add(FISH_G.body, body, 0, 0, 0); add(FISH_G.eye, dark, 0, 0.04, 0.17);
+  const tail = new THREE.Group(); tail.position.set(0, 0, -0.23); g.add(tail); add(FISH_G.tail, body, 0, 0, -0.07, tail); add(FISH_G.fin, body, 0, 0.14, 0.02);
+  g.position.set(x, y, z); scene.add(g);
+  const m = { mesh: g, pos: g.position, vel: new THREE.Vector3(), hw: 0.2, h: 0.25, hp: 2, kb: 0, phase: Math.random() * 6, tail, id: id || '', net: null, nt: 0, kind: 4, wait: Math.random() * 2, ang: Math.random() * 6.28, dy: 0, tx: x, ty: y, tz: z, tyaw: 0 };
+  g.traverse(o => { o.userData.m = m; });
+  monsters.push(m);
+  return m;
+}
+let catTimer = 12, fishTimer = 2;
+function trySpawnCat() {
+  let own = 0; for (const q of monsters) if (q.kind === 3 && !q.net) own++;
+  if (own >= 3) return;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const ang = Math.random() * Math.PI * 2, dist = 7 + Math.random() * 18;
+    const x = player.pos.x + Math.cos(ang) * dist, z = player.pos.z + Math.sin(ang) * dist;
+    const top = columnTop(Math.round(x), Math.round(z));
+    if (!top || (top.id !== 1 && top.id !== 4 && top.id !== 6)) continue;
+    buildCat(x, top.y + 0.5, z, 'c' + (myId || 0) + '_' + (++entNet.mseq)); return;
+  }
+}
+function trySpawnFish() {
+  let own = 0; for (const q of monsters) if (q.kind === 4 && !q.net) own++;
+  if (own >= 9) return;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const ang = Math.random() * Math.PI * 2, dist = 6 + Math.random() * 30;
+    const x = Math.round(player.pos.x + Math.cos(ang) * dist), z = Math.round(player.pos.z + Math.sin(ang) * dist);
+    const top = columnTop(x, z);
+    if (!top || top.id !== 16 || !isWaterId(getBlock(x, top.y - 1, z))) continue;                // a lake at least 2 deep
+    const n = 2 + ((Math.random() * 3) | 0);
+    for (let k = 0; k < n; k++) { const fx = x + (Math.random() - 0.5) * 2, fz = z + (Math.random() - 0.5) * 2, fy = top.y - 0.5 - Math.random() * 0.8; if (isWaterId(getBlock(Math.round(fx), Math.round(fy), Math.round(fz)))) buildFish(fx, fy, fz, 'f' + (myId || 0) + '_' + (++entNet.mseq)); }
+    return;
+  }
+}
+function updateFish(m, i, dt) {
+  const p = m.pos, d = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
+  if (d > 90 || (m.net && performance.now() - m.nt > 2000)) { removeMonster(i); return; }
+  m.phase += dt * 9; m.tail.rotation.y = Math.sin(m.phase) * 0.5;
+  if (m.net) { const k = Math.min(1, dt * 10); p.x += (m.tx - p.x) * k; p.y += (m.ty - p.y) * k; p.z += (m.tz - p.z) * k; m.mesh.rotation.y = m.tyaw; return; }
+  const wet = (x, y, z) => isWaterId(getBlock(Math.round(x), Math.round(y), Math.round(z)));
+  if (!wet(p.x, p.y, p.z)) { m.dry = (m.dry || 0) + dt; if (m.dry > 1.5) killMonster(m); return; }    // the water is gone
+  m.dry = 0;
+  m.wait -= dt; if (m.wait <= 0) { m.wait = 1 + Math.random() * 2.5; m.ang += (Math.random() - 0.5) * 2.2; m.dy = (Math.random() - 0.5) * 0.5; }
+  const sp = m.kb > 0 ? 0.3 : 1.0; if (m.kb > 0) m.kb -= dt;
+  const nx = p.x + Math.sin(m.ang) * sp * dt, nz = p.z + Math.cos(m.ang) * sp * dt, ny = p.y + m.dy * dt;
+  if (wet(nx + Math.sin(m.ang) * 0.3, p.y, nz + Math.cos(m.ang) * 0.3) && wet(nx, ny + 0.2, nz) && wet(nx, ny - 0.1, nz)) { p.x = nx; p.z = nz; p.y = ny; }
+  else { m.ang += 1.5 + Math.random(); m.wait = 0.4; m.dy = 0; }
+  m.mesh.rotation.y = m.ang;
+}
 function updateSheep(m, i, dt) {
+  if (m.kind === 4) { updateFish(m, i, dt); return; }
   const p = m.pos, dx = player.pos.x - p.x, dz = player.pos.z - p.z, d = Math.hypot(dx, dz);
   if (d > 110 || (m.net && performance.now() - m.nt > 2000)) { removeMonster(i); return; }
   if (m.net) {
@@ -1702,14 +1844,16 @@ function updateSheep(m, i, dt) {
   if (m.kb > 0) { m.kb -= dt; m.vel.x *= 0.92; m.vel.z *= 0.92; }
   else {
     m.wait -= dt;
-    if (m.wait <= 0) { if (m.moving) { m.moving = false; m.wait = 1.5 + Math.random() * 3; } else { m.moving = true; m.wait = 1.5 + Math.random() * 2.5; m.ang = Math.random() * Math.PI * 2; } }
-    if (m.moving) { m.vel.x = Math.sin(m.ang) * 1.0; m.vel.z = Math.cos(m.ang) * 1.0; m.mesh.rotation.y = m.ang; } else { m.vel.x = 0; m.vel.z = 0; }
+    if (m.kind === 3 && selectedType === 139 && d < 9 && d > 1.4) { m.moving = true; m.wait = 0.3; m.ang = Math.atan2(dx, dz); }   // cats follow anybody holding raw fish
+    else if (m.wait <= 0) { if (m.moving) { m.moving = false; m.wait = 1.5 + Math.random() * 3; } else { m.moving = true; m.wait = 1.5 + Math.random() * 2.5; m.ang = Math.random() * Math.PI * 2; } }
+    if (m.moving) { const sp = m.kind === 3 ? 1.5 : 1.0; m.vel.x = Math.sin(m.ang) * sp; m.vel.z = Math.cos(m.ang) * sp; m.mesh.rotation.y = m.ang; } else { m.vel.x = 0; m.vel.z = 0; }
   }
   m.vel.y = Math.max(m.vel.y - 15 * dt, -40);
   const r = moveEntity(m, dt);
   if ((r.x || r.z) && r.ground) { if (m.moving) m.vel.y = 5.6; }                                   // hop over a one-block step
   if (m.moving || m.kb > 0) m.phase += dt * 6;
   m.legL.rotation.x = Math.sin(m.phase) * 0.5 * (m.moving ? 1 : 0.2); m.legR.rotation.x = -m.legL.rotation.x;
+  if (m.tail) m.tail.rotation.x = -0.6 + Math.sin(performance.now() / 400 + m.phase) * 0.25;
 }
 function dropLoot(m, item) {                                      // a dead animal / zombie drops items for everybody to see
   const n = 1 + (Math.random() < 0.5 ? 1 : 0), x = m.pos.x, y = m.pos.y + 0.5, z = m.pos.z;
@@ -1727,16 +1871,17 @@ function createMonster() {
     const x = player.pos.x + Math.cos(ang) * dist, z = player.pos.z + Math.sin(ang) * dist;
     const top = columnTop(Math.round(x), Math.round(z));
     if (!top || top.id === 9 || top.id === 5) continue;
-    const m = buildMonster(x, top.y + 0.5, z); m.id = 'm' + (myId || 0) + '_' + (++entNet.mseq);
+    const m = Math.random() < 0.3 ? buildCreeper(x, top.y + 0.5, z) : buildMonster(x, top.y + 0.5, z); m.id = 'm' + (myId || 0) + '_' + (++entNet.mseq);
     return;
   }
 }
 function removeMonster(i) { scene.remove(monsters[i].mesh); monsters.splice(i, 1); }
 const corpses = [];
 function killMonster(m) {                                         // it dies: falls over to the side, then disappears
+  if (m.kind === 3) { m.hp = 8; return; }                           // cats cannot be killed
   const i = monsters.indexOf(m); if (i < 0) return;
   if (!m.net) {
-    if (m.kind === 2) dropMeat(m); else dropLoot(m, 132);
+    if (m.kind === 2) dropMeat(m); else if (m.kind === 4) { if (netState === 'on') netSend({ t: 'mobdrop', i: 139, n: 1, x: +m.pos.x.toFixed(2), y: +m.pos.y.toFixed(2), z: +m.pos.z.toFixed(2) }); else spawnDrop(m.pos.x, m.pos.y, m.pos.z, 139, 0, 1); } else dropLoot(m, 132);
     if (netState === 'on') entNet.dead.push([m.id, m.kind || 1, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.mesh.rotation.y), 0]);   // tell the others it died
   }
   monsters.splice(i, 1); corpses.push({ g: m.mesh, t: 0, y: m.mesh.position.y });
@@ -1752,33 +1897,42 @@ function updateCorpses(dt) {
 
 function updateMonsters(dt) {
   const zombies = isNight && monstersEnabled && player.pos.x < VOID_X0;
-  if (!zombies) { for (let i = monsters.length - 1; i >= 0; i--) if (monsters[i].kind !== 2) removeMonster(i); }
-  if (zombies) { monsterTimer += dt; if (monsterTimer > 4) { monsterTimer = 0; if (monsters.filter(q => !q.net && q.kind !== 2).length < 10) createMonster(); } }
+  const isZ = q => q.kind !== 2 && q.kind !== 3 && q.kind !== 4;
+  if (!zombies) { for (let i = monsters.length - 1; i >= 0; i--) if (isZ(monsters[i])) removeMonster(i); }
+  if (zombies) { monsterTimer += dt; if (monsterTimer > 4) { monsterTimer = 0; if (monsters.filter(q => !q.net && isZ(q)).length < 10) createMonster(); } }
   sheepTimer += dt; if (sheepTimer > 6) { sheepTimer = 0; trySpawnSheep(); }
+  catTimer += dt; if (catTimer > 12) { catTimer = 0; trySpawnCat(); }
+  fishTimer += dt; if (fishTimer > 5) { fishTimer = 0; trySpawnFish(); }
   let near = false;
   for (let i = monsters.length - 1; i >= 0; i--) {
     const m = monsters[i], p = m.pos;
-    if (m.kind === 2) { updateSheep(m, i, dt); continue; }
+    if (m.kind === 2 || m.kind === 3 || m.kind === 4) { updateSheep(m, i, dt); continue; }
     const dx = player.pos.x - p.x, dz = player.pos.z - p.z, d = Math.hypot(dx, dz);
     if (d > 70 || (m.net && performance.now() - m.nt > 2000)) { removeMonster(i); continue; }
     if (m.net) {                                                       // somebody else simulates this one: just follow their position
       const k = Math.min(1, dt * 10);
       p.x += (m.tx - p.x) * k; p.y += (m.ty - p.y) * k; p.z += (m.tz - p.z) * k; m.mesh.rotation.y = m.tyaw;
       m.phase += dt * 8; m.legL.rotation.x = Math.sin(m.phase) * 0.6; m.legR.rotation.x = -Math.sin(m.phase) * 0.6;
-      if (d < 1.0 && Math.abs(p.y - player.pos.y) < 1.7) takeDamage();
+      if (m.kind !== 5 && d < 1.0 && Math.abs(p.y - player.pos.y) < 1.7) takeDamage();
       if (d < 10) near = true;
       continue;
     }
     if (m.kb > 0) { m.kb -= dt; m.vel.x *= 0.92; m.vel.z *= 0.92; }
-    else if (d > 0.1) { m.vel.x = dx / d * MONSTER_SPEED; m.vel.z = dz / d * MONSTER_SPEED; }
+    else if (d > 0.1) { const sp = m.kind === 5 ? (m.fuse > 0 ? 0 : 2.2) : MONSTER_SPEED; m.vel.x = dx / d * sp; m.vel.z = dz / d * sp; }
     if (d > 0.1) m.mesh.rotation.y = Math.atan2(dx, dz);
+    if (m.kind === 5) {                                                // the fuse: close to you it hisses and swells, run away and it calms down
+      if (d < 3.2 && Math.abs(p.y - player.pos.y) < 2.5) m.fuse += dt; else m.fuse = Math.max(0, m.fuse - dt * 0.6);
+      const sw = 1 + m.fuse * 0.28; m.mesh.scale.set(sw, sw, sw);
+      if (m.mat && m.mat.emissive) m.mat.emissive.setHex(m.fuse > 0 && Math.floor(m.fuse * 8) % 2 === 0 ? 0xdddddd : 0x1a3a18);
+      if (m.fuse > 1.5) { explodeCreeper(m); continue; }
+    }
     m.vel.y = Math.max(m.vel.y - 15 * dt, -40);
     const r = moveEntity(m, dt);
     if ((r.x || r.z) && r.ground) m.vel.y = 6.2; // jump over 1-block obstacles
     m.phase += dt * 8;
     m.legL.rotation.x = Math.sin(m.phase) * 0.6;
     m.legR.rotation.x = -Math.sin(m.phase) * 0.6; m.armL.rotation.x = m.armR.rotation.x = -1.45 + Math.sin(m.phase * 0.5) * 0.08;
-    if (d < 1.0 && Math.abs(p.y - player.pos.y) < 1.7) takeDamage();
+    if (m.kind !== 5 && d < 1.0 && Math.abs(p.y - player.pos.y) < 1.7) takeDamage();
     if (d < 10) near = true;
   }
   setWarn(zombies && near);
@@ -1891,7 +2045,8 @@ function doAttack() {
       }
     }
   } else if (vh && vh.dist < vd && vh.dist <= md && vh.dist <= pd) {
-    villagerSay(vh.vl, 'hit'); hitEntityT = 0.3;                    // villagers are not hurt, they just complain
+    const l = Math.hypot(_dir.x, _dir.z) || 1;
+    hitVillager(vh.vl, swordDmg(), _dir.x / l, _dir.z / l); hitEntityT = 0.3;          // villagers can be killed
   } else if (pd < Infinity && pd < vd) {
     const b = physicsBlocks.find(b => b.mesh === ph[0].object);
     if (b) { b.vel.addScaledVector(_dir, 10); b.vel.y += 3; }
@@ -1932,14 +2087,16 @@ function onEnts(m) {
     if (!Array.isArray(e)) continue;
     const [id, k, x, y, z, yaw, hp] = e;
     if (typeof id !== 'string' || ![x, y, z, yaw].every(Number.isFinite)) continue;
+    if (k === 6) { const vl = villagers.find(q => q.id === id); if (vl) killVillager(vl, false); continue; }               // the owner says a villager was killed
     if (k === 0) { const vl = villagers.find(q => q.id === id); if (vl) { vl.net = o; vl.nt = now; vl.px = x; vl.pz = z; vl.pyaw = yaw; } }
     else {
       seen.add(id);
       let mo = monsters.find(q => q.id === id);
-      if (hp <= 0) { if (mo && mo.net) killMonster(mo); continue; }                      // the owner says it died
+      if (hp <= 0) { if (mo && mo.net) { if (k === 5) removeMonster(monsters.indexOf(mo)); else killMonster(mo); } continue; }                      // the owner says it died
       if (!mo) {
         if (k === 2) { if (Math.hypot(x - player.pos.x, z - player.pos.z) > 100) continue; mo = buildSheep(x, y, z); }
-        else { if (!isNight || !monstersEnabled || Math.hypot(x - player.pos.x, z - player.pos.z) > 80) continue; mo = buildMonster(x, y, z); }
+        else if (k === 3 || k === 4) { if (Math.hypot(x - player.pos.x, z - player.pos.z) > 100) continue; mo = k === 3 ? buildCat(x, y, z, id) : buildFish(x, y, z, id); }
+        else { if (!isNight || !monstersEnabled || Math.hypot(x - player.pos.x, z - player.pos.z) > 80) continue; mo = k === 5 ? buildCreeper(x, y, z) : buildMonster(x, y, z); }
         mo.id = id;
       }
       mo.net = o; mo.nt = now; mo.tx = x; mo.ty = y; mo.tz = z; mo.tyaw = yaw; mo.hp = Number.isFinite(hp) ? hp : mo.hp;
@@ -1956,7 +2113,8 @@ function onEntsGone(o) {                                         // that player 
   for (const vl of villagers) if (vl.net === o) vl.net = null;
 }
 function onEntHit(m) {                                           // somebody hit a monster that I simulate
-  const mo = monsters.find(q => q.id === m.id && !q.net); if (!mo) return;
+  const mo = monsters.find(q => q.id === m.id && !q.net);
+  if (!mo) { const vl = villagers.find(q => q.id === m.id && !q.net); if (vl) damageVillager(vl, Math.max(1, Math.min(20, +m.d || 1))); return; }
   const kx = Number.isFinite(m.kx) ? m.kx : 0, kz = Number.isFinite(m.kz) ? m.kz : 0;
   mo.hp -= Math.max(1, Math.min(20, +m.d || 1)); mo.kb = 0.35; mo.vel.set(kx * 7, 4, kz * 7);
   if (mo.hp <= 0) killMonster(mo);
@@ -2051,6 +2209,26 @@ function updateVillagers(dt) {
     if (vl.greet > 0) vl.greet -= dt;
     else if (player.alive && !vl.bubble && Math.hypot(vl.x - player.pos.x, vl.z - player.pos.z) < 3.5) { villagerSay(vl, 'greet'); vl.greet = 30; }
     if (vl.bubble) { vl.bubbleT -= dt; vl.bubble.position.set(vl.x, L + 2.5, vl.z); if (vl.bubbleT <= 0) { scene.remove(vl.bubble); vl.bubble = null; } }
+  }
+}
+function hitVillager(vl, d, kx, kz) {
+  if (vl.net) { netSend({ t: 'ehit', id: vl.id, d, kx: +kx.toFixed(2), kz: +kz.toFixed(2) }); villagerSay(vl, 'hit'); }   // the player who simulates it applies the hit
+  else damageVillager(vl, d);
+}
+function damageVillager(vl, d) {
+  vl.hp = (vl.hp == null ? 8 : vl.hp) - Math.max(1, d);
+  if (vl.hp <= 0) killVillager(vl, true); else villagerSay(vl, 'hit');
+}
+function killVillager(vl, announce) {                                // it falls over and is gone until the village is loaded again
+  const i = villagers.indexOf(vl); if (i < 0) return;
+  villagers.splice(i, 1);
+  if (vl.v && vl.v.vils) { const j = vl.v.vils.indexOf(vl); if (j >= 0) vl.v.vils.splice(j, 1); }
+  if (vl.bubble) { scene.remove(vl.bubble); vl.bubble = null; }
+  corpses.push({ g: vl.g, t: 0, y: vl.g.position.y });
+  if (announce) {
+    const y = vl.v.L + 1;
+    if (netState === 'on') { entNet.dead.push([vl.id, 6, r2(vl.x), r2(vl.v.L + 0.5), r2(vl.z), r2(vl.ang), 0]); netSend({ t: 'mobdrop', i: 100, n: 1, x: +vl.x.toFixed(2), y: +y.toFixed(2), z: +vl.z.toFixed(2) }); }
+    else spawnDrop(vl.x, y, vl.z, 100, 0, 1);                       // a villager drops some bread
   }
 }
 function villagerSay(vl, kind) {
@@ -2150,7 +2328,7 @@ const RECIPES = [
   recipe(121, 1, { 8: 1, 103: 2 }, 'table'), recipe(122, 1, { 3: 1, 103: 2 }, 'table'), recipe(123, 1, { 105: 1, 103: 2 }, 'table'),
   recipe(124, 1, { 8: 2, 103: 1 }, 'table'), recipe(125, 1, { 3: 2, 103: 1 }, 'table'), recipe(126, 1, { 105: 2, 103: 1 }, 'table'),
   recipe(105, 1, { 19: 1 }, 'furnace', true), recipe(106, 1, { 20: 1 }, 'furnace', true), recipe(23, 1, { 4: 1 }, 'furnace', true), recipe(7, 1, { 2: 2 }, 'furnace', true),
-  recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true), recipe(131, 1, { 130: 1 }, 'furnace', true), recipe(133, 1, { 132: 50 }),
+  recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true), recipe(131, 1, { 130: 1 }, 'furnace', true), recipe(140, 1, { 139: 1 }, 'furnace', true), recipe(133, 1, { 132: 50 }),
   recipe(105, 1, { 31: 1 }, 'furnace', true), recipe(106, 1, { 32: 1 }, 'furnace', true),
   recipe(135, 1, { 134: 3, 103: 2 }, 'table'), recipe(136, 1, { 134: 3, 103: 2 }, 'table'), recipe(137, 1, { 134: 1, 103: 2 }, 'table'), recipe(138, 1, { 134: 2, 103: 1 }, 'table')
 ];
@@ -2449,6 +2627,56 @@ function bindBtn(id, down, up) {
   const u = e => { b.classList.remove('down'); up && up(); };
   b.addEventListener('pointerup', u); b.addEventListener('pointercancel', u); b.addEventListener('pointerleave', u);
 }
+// ---------- customisable touch layout: move / resize the buttons, the joystick and the inventory (saved per screen orientation) ----------
+const LAY_IDS = ['joy-base', 'btn-jump', 'btn-break', 'btn-place', 'inv'];
+let layouts = { l: {}, p: {}, op: 100 }, layEdit = false, laySel = 'btn-jump', layDrag = null;
+try { const v = JSON.parse(localStorage.getItem('sbx_layout') || 'null'); if (v && v.l && v.p) layouts = v; } catch (e) {}
+const layKey = () => innerWidth >= innerHeight ? 'l' : 'p';
+const laySave = () => { try { localStorage.setItem('sbx_layout', JSON.stringify(layouts)); } catch (e) {} };
+function layApply() {
+  const touchOn = document.body.classList.contains('touch'), set = layouts[layKey()];
+  for (const id of LAY_IDS) {
+    const e = el(id), L = touchOn ? set[id] : null;
+    if (L) { e.style.left = (L.x * 100) + '%'; e.style.top = (L.y * 100) + '%'; e.style.right = e.style.bottom = 'auto'; e.style.transform = 'translate(-50%,-50%) scale(' + (L.s || 1) + ')'; }
+    else { e.style.left = e.style.top = e.style.right = e.style.bottom = e.style.transform = ''; }
+    e.style.opacity = touchOn && id !== 'inv' && layouts.op < 100 ? layouts.op / 100 : '';
+  }
+}
+function laySelect(id) {
+  laySel = id; for (const i of LAY_IDS) el(i).classList.toggle('lay-sel', layEdit && i === id);
+  const L = layouts[layKey()][id]; el('lay-size').value = Math.round(((L && L.s) || 1) * 100);
+}
+function layStart() {
+  if (settingsOpen) closeSettings();
+  layEdit = true; document.body.classList.add('lay-edit'); el('lay-bar').style.display = 'flex';
+  const set = layouts[layKey()];
+  for (const id of LAY_IDS) if (!set[id]) { const r = el(id).getBoundingClientRect(); set[id] = { x: (r.left + r.width / 2) / innerWidth, y: (r.top + r.height / 2) / innerHeight, s: 1 }; }
+  el('lay-op').value = layouts.op; layApply(); laySelect(laySel);
+}
+function layStop() { layEdit = false; layDrag = null; document.body.classList.remove('lay-edit'); el('lay-bar').style.display = 'none'; for (const i of LAY_IDS) el(i).classList.remove('lay-sel'); laySave(); layApply(); }
+for (const id of LAY_IDS) {
+  const e = el(id), down = ev => {
+    if (!layEdit) return; ev.preventDefault(); ev.stopImmediatePropagation();
+    laySelect(id); const L = layouts[layKey()][id];
+    if (ev.pointerId !== undefined) { layDrag = { id, ox: L.x - ev.clientX / innerWidth, oy: L.y - ev.clientY / innerHeight, pid: ev.pointerId }; try { e.setPointerCapture(ev.pointerId); } catch (x) {} }
+  };
+  e.addEventListener('pointerdown', down, true);
+  e.addEventListener('touchstart', ev => { if (layEdit) { ev.preventDefault(); ev.stopImmediatePropagation(); } }, { capture: true, passive: false });
+  e.addEventListener('pointermove', ev => {
+    if (!layEdit || !layDrag || layDrag.id !== id || ev.pointerId !== layDrag.pid) return;
+    const L = layouts[layKey()][id]; L.x = Math.max(0.04, Math.min(0.96, ev.clientX / innerWidth + layDrag.ox)); L.y = Math.max(0.04, Math.min(0.96, ev.clientY / innerHeight + layDrag.oy)); layApply();
+  });
+  const up = () => { if (layDrag && layDrag.id === id) { layDrag = null; laySave(); } };
+  e.addEventListener('pointerup', up); e.addEventListener('pointercancel', up);
+}
+el('lay-size').addEventListener('input', ev => { const L = layouts[layKey()][laySel]; if (L) { L.s = +ev.target.value / 100; layApply(); laySave(); } });
+el('lay-op').addEventListener('input', ev => { layouts.op = +ev.target.value; layApply(); laySave(); });
+el('lay-mirror').addEventListener('click', () => { for (const id of LAY_IDS) { const L = layouts[layKey()][id]; if (L) L.x = 1 - L.x; } layApply(); laySave(); });
+el('lay-reset').addEventListener('click', () => { layouts[layKey()] = {}; layouts.op = 100; layStop(); layStart(); laySave(); });
+el('lay-done').addEventListener('click', layStop);
+el('btn-layout').addEventListener('click', layStart);
+addEventListener('resize', () => { if (layEdit) layStop(); layApply(); });
+layApply();
 bindBtn('btn-jump', () => touch.jump = true, () => touch.jump = false);
 bindBtn('btn-break', () => { doAttack(); touch.breakHeld = true; touch.breakT = 0.35; }, () => touch.breakHeld = false);
 bindBtn('btn-place', () => doPlace());
@@ -2498,6 +2726,7 @@ function applyPixelRatio(val) { renderer.setPixelRatio(val); }
 function setTouchMode(on) {
   touchMode = on;
   document.body.classList.toggle('touch', on);
+  try { layApply(); } catch (e) {}
   el('s-touch').checked = on;
   if (on && locked) document.exitPointerLock();
   updateInfo();
@@ -2764,7 +2993,7 @@ function netHandle(m) {
       if (srvReset > knownReset) bkDropBefore(srvReset);
       knownReset = Math.max(knownReset, srvReset);
       joinMsg = ''; hideLobby();
-      voiceCloseAll(); if (mySkin && mySkin !== 'blue') sendSkin(); heldLocal.sent = -1;
+      voiceCloseAll(); if (mySkin && mySkin !== 'blue') sendSkin(); heldLocal.sent = -1; heldLocal.hm = -1;
       try { if (localStorage.getItem('sbx_mic') === '1' && !voice.on) voiceToggle(true); } catch (e) {}
       if (m.name) setMyName(m.name);
       adminEnabled = true; isAdmin = false; admStatus();
@@ -2789,9 +3018,11 @@ function netHandle(m) {
     case 'pos': { const r = remotes.get(m.id); if (r) { r.tx = m.x; r.ty = m.y; r.tz = m.z; r.yaw = m.yaw; r.pitch = Number.isFinite(m.pitch) ? m.pitch : 0; r.hT = Array.isArray(m.h) && m.h.length === 6 && m.h.every(Number.isFinite) ? m.h : null; if (!r.hT) r.hC = null; } break; }
     case 'block': bkFromServer([[m.x, m.y, m.z, m.b, m.ts]]); break;
     case 'time': if (typeof m.c === 'number') cycleTime = m.c; break;
+    case 'boom': if ([m.x, m.y, m.z].every(Number.isFinite)) { boomEffect(m.x, m.y, m.z); boomHurt(m.x, m.y, m.z); } break;
     case 'swing': { const r = remotes.get(m.id); if (r) r.swing = 0.3; break; }
     case 'hit': { const r = remotes.get(m.id); if (r) r.flash = 0.25; break; }
     case 'ptr': { if ([m.x, m.y, m.z, m.ux, m.uz, m.len, m.gx, m.gz].every(Number.isFinite) && player.pos.x < VOID_X0) launchPointer(m.x, m.y, m.z, m.ux, m.uz, Math.min(70, m.len), m.gx, m.gz, !!m.arr); break; }
+    case 'hm': { const r = remotes.get(m.id); if (r) setRemoteHm(r, m.on); break; }
     case 'held': { const r = remotes.get(m.id); if (r) setRemoteHeld(r, +m.i || 0); break; }
     case 'skin': { const r = remotes.get(m.id); if (r) applySkin(r, m.s || null); break; }
     case 'died': { const r = remotes.get(m.id); if (r) { r.dead = true; r.deadT = 0; } break; }
@@ -3061,6 +3292,8 @@ function updateHeldLocal() {
     heldLocal.g.rotation.x = b.rx - sw * 0.9; heldLocal.g.position.set(b.x - sw * 0.1, b.y + sw * 0.08, b.z - sw * 0.15);
   }
   if (netState === 'on' && heldLocal.sent !== selectedType) { heldLocal.sent = selectedType; netSend({ t: 'held', i: selectedType }); }
+  const hmNow = xrActive && vr.hm ? 1 : 0;
+  if (netState === 'on' && heldLocal.hm !== hmNow) { heldLocal.hm = hmNow; netSend({ t: 'hm', on: hmNow }); }          // others see a body without legs
 }
 function addRemote(p) {
   if (!p || remotes.has(p.id)) return;
@@ -3080,7 +3313,9 @@ function addRemote(p) {
   remotes.set(p.id, r);
   if (p.skin) applySkin(r, p.skin);
   if (p.held) setRemoteHeld(r, p.held);
+  if (p.hm) setRemoteHm(r, 1);
 }
+function setRemoteHm(r, on) { r.hm = !!on; if (r.parts.legL) r.parts.legL.visible = r.parts.legR.visible = !on; }
 function setRemoteName(r, name) {
   if (r.sprite) { r.g.remove(r.sprite); r.sprite.material.map.dispose(); r.sprite.material.dispose(); }
   r.name = name; r.sprite = makeNameSprite(name); r.sprite.position.y = 2.25; r.g.add(r.sprite);
@@ -3301,7 +3536,7 @@ camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z);
 //   A / right face button = jump, B = next item, X = previous item
 // The hearts and inventory are shown on a panel on the left wrist.
 // =====================================================
-const vr = { ctrls: [], hold: [false, false], main: 1, panel: null, ctx: null, tex: null, f: 0, sd: 0, jump: false, snapT: 0, stickT: 0, prev: {}, ready: false };
+const vr = { hm: false, hmPrev: [null, null], hmv: { x: 0, z: 0 }, hmT: [false, false], ctrls: [], hold: [false, false], main: 1, panel: null, ctx: null, tex: null, f: 0, sd: 0, jump: false, snapT: 0, stickT: 0, prev: {}, ready: false };
 function vrRay(c) {                                              // origin + direction of a controller's pointer (world space)
   const e = c.matrixWorld.elements, dx = -e[8], dy = -e[9], dz = -e[10], l = Math.hypot(dx, dy, dz) || 1;
   return { o: new THREE.Vector3(e[12], e[13], e[14]), d: new THREE.Vector3(dx / l, dy / l, dz / l) };
@@ -3482,6 +3717,8 @@ function drawVrMenu() {
     btn(380, 352, 100, 56, '−', () => applyMusic(musicVol - 10, true), musicVol > 0, false);
     btn(500, 352, 100, 56, '+', () => applyMusic(musicVol + 10, true), musicVol < 100, false);
     btn(40, 270, 300, 50, voice.on ? '🎙️ Mic: ON (open mic)' : '🎤 Mic: OFF', () => voiceToggle(), true, voice.on);
+    btn(355, 270, 275, 50, vr.hm ? '🖐 Hand movement: ON' : '🖐 Hand movement: OFF', () => setHandMove(!vr.hm), true, vr.hm);
+    c.font = '15px Arial'; c.fillStyle = '#9ab'; c.fillText('Hand movement (experimental): push off blocks and the ground with your hands.', 40, 334, 590);
     c.font = '17px Arial'; c.fillStyle = '#aab';
     c.fillText('Open / close this menu: left Y button or press a thumbstick.', 40, 440);
     c.fillText('Trigger or grip clicks a button. Walk away to close it.', 40, 468);
@@ -3497,6 +3734,41 @@ function vrButtons(src, hand) {                                  // returns the 
   if (!gp) return down;
   gp.buttons.forEach((b, i) => { if (b.pressed && !prev[i]) down.push(i); prev[i] = b.pressed; });
   return down;
+}
+// ---------- hand movement (experimental, VR only): move like in Gorilla Tag - push and pull yourself with your hands ----------
+try { vr.hm = localStorage.getItem('sbx_hm') === '1'; } catch (e) {}
+function setHandMove(on) {
+  vr.hm = !!on; vr.hmPrev = [null, null]; vr.hmv.x = vr.hmv.z = 0; vrDirty = VRM.dirty = true;
+  try { localStorage.setItem('sbx_hm', on ? '1' : '0'); } catch (e) {}
+  toast(on ? '🖐 Hand movement ON: push the ground and walls with your hands to move. Thumbstick walking is off.' : 'Hand movement off');
+}
+const HM_R = 0.14;
+function handTouch(x, y, z) {                                      // is a solid block touching a ball of 14 cm around the hand?
+  for (const [dx, dy, dz] of [[0, 0, 0], [HM_R, 0, 0], [-HM_R, 0, 0], [0, HM_R, 0], [0, -HM_R, 0], [0, 0, HM_R], [0, 0, -HM_R]])
+    if (isSolidId(getBlock(Math.round(x + dx), Math.round(y + dy), Math.round(z + dz)))) return true;
+  return false;
+}
+function vrHandMove(dt) {                                          // a hand that touches a block stays where it is in the world: your body moves the other way
+  if (!player.alive || VRM.open || dt <= 0 || dt > 0.1) { vr.hmPrev = [null, null]; vr.hmT = [false, false]; return; }
+  rig.updateMatrixWorld(true);
+  let n = 0, vx = 0, vy = 0, vz = 0;
+  vr.ctrls.forEach((c, i) => {
+    c.updateMatrixWorld(true);
+    const e = c.matrixWorld.elements, rx = e[12] - rig.position.x, ry = e[13] - rig.position.y, rz = e[14] - rig.position.z, pv = vr.hmPrev[i];
+    vr.hmPrev[i] = [rx, ry, rz];
+    const touch = !!pv && handTouch(e[12], e[13], e[14]); vr.hmT[i] = touch;
+    if (touch) { vx -= (rx - pv[0]) / dt; vy -= (ry - pv[1]) / dt; vz -= (rz - pv[2]) / dt; n++; }
+  });
+  if (n) {
+    vx /= n; vy /= n; vz /= n;
+    const sp = Math.hypot(vx, vy, vz); if (sp < 0.3) { vx = vy = vz = 0; } else if (sp > 9) { const k = 9 / sp; vx *= k; vy *= k; vz *= k; }
+    vr.hmv.x = vx; vr.hmv.z = vz;
+    if (vy > 0 || !player.onGround) player.vel.y = vy;               // pushing down on the ground launches you, pulling down on a wall lifts you
+    if (n === 2 && sp < 0.3) player.vel.y = Math.max(player.vel.y, 0);   // hanging on with both hands: no falling
+  } else {
+    const k = Math.exp(-(player.onGround ? 7 : 0.7) * dt); vr.hmv.x *= k; vr.hmv.z *= k;       // let go: you keep flying
+  }
+  player.vel.x += vr.hmv.x; player.vel.z += vr.hmv.z;
 }
 function vrPreUpdate(dt) {                                       // before movement: read the headset and the controllers
   camera.updateMatrixWorld(true);
@@ -3524,6 +3796,7 @@ function vrPreUpdate(dt) {                                       // before movem
     const gp = src.gamepad; if (gp && hand !== 'left' && gp.buttons[4] && gp.buttons[4].pressed) vr.jump = true;
     if (vr.hold[c.userData.i] && attackCooldown <= 0 && !VRM.open) vrAct(c, 'break');                                                  // hold the trigger to keep mining
   }
+  if (vr.hm) { vr.f = vr.sd = 0; vr.jump = false; }                  // hand movement: no thumbstick walking, no jump button
 }
 function vrTargets() {                                           // pointer lines + the block the main hand points at
   rig.updateMatrixWorld(true);
@@ -3627,6 +3900,7 @@ function update() {
   player.vel.x = (fx * f + rx * sd) * player.speed + kb.x;
   player.vel.z = (fz * f + rz * sd) * player.speed + kb.z;
   const kd = Math.exp(-5 * dt); kb.x *= kd; kb.z *= kd;
+  if (xrActive && vr.hm) vrHandMove(dt);
   if ((keys['Space'] || touch.jump || (xrActive && vr.jump)) && player.onGround && !(getBlock(Math.round(player.pos.x), Math.floor(player.pos.y + 0.5), Math.round(player.pos.z)) === 16 || isWaterId(getBlock(Math.round(player.pos.x), Math.floor(player.pos.y + 0.5), Math.round(player.pos.z))))) { player.vel.y = player.jumpForce; player.onGround = false; }
   {
     const bx = Math.round(player.pos.x), bz = Math.round(player.pos.z);
@@ -3648,7 +3922,7 @@ function update() {
     player.onGround = r.ground;
   }
   if (player.pos.y < Y_MIN - 12) { if (player.pos.x >= VOID_X0) voidFall(); else respawnPlayer(); }
-  portalCheck(dt); updatePointers(dt); updateArrows(dt); updateFluids(dt); musicTick(dt);
+  portalCheck(dt); updatePointers(dt); updateArrows(dt); updateBooms(dt); updateFluids(dt); musicTick(dt);
   if (xrActive) vrPostUpdate();
   else { camera.position.set(player.pos.x, player.pos.y + EYE - deathF() * 1.1, player.pos.z); camera.updateMatrixWorld(); }
 
