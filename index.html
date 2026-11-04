@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-03T15:45">
+<meta name="sbx-build" content="2026-11-04T08:10">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -1709,10 +1709,16 @@ function updateBooms(dt) {
     if (f >= 1) { scene.remove(b.me); b.me.geometry.dispose(); b.me.material.dispose(); booms.splice(i, 1); }
   }
 }
+function blastBlocked(x0, y0, z0, x1, y1, z1, stop) {                // true when a solid block is in the way (explosions don't go through walls)
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, L = Math.hypot(dx, dy, dz), n = Math.floor((L - (stop || 0)) / 0.2);
+  for (let i = 1; i <= n; i++) { const f = i * 0.2 / L; if (isSolidId(getBlock(Math.round(x0 + dx * f), Math.round(y0 + dy * f), Math.round(z0 + dz * f)))) return true; }
+  return false;
+}
 function boomHurt(x, y, z) {                                       // an explosion at (x,y,z): hurts and throws me if I am close
   if (!player.alive) return;
   const dx = player.pos.x - x, dz = player.pos.z - z, d = Math.hypot(dx, player.pos.y + 0.9 - y, dz);
   const hearts = d < 2.2 ? 4 : d < 3.5 ? 2 : d < 5 ? 1 : 0; if (!hearts) return;
+  if ([0.1, 0.9, 1.6].every(o => blastBlocked(x, y, z, player.pos.x, player.pos.y + o, player.pos.z, 0.3))) return;   // a wall in between protects me
   for (let k = 0; k < hearts; k++) { player.invincible = 0; takeDamage(); if (!player.alive) break; }
   const l = Math.hypot(dx, dz) || 1; kb.x = dx / l * 10; kb.z = dz / l * 10; if (player.alive) { player.vel.y = 7; player.onGround = false; }
 }
@@ -1724,6 +1730,7 @@ function explodeCreeper(m) {
     const d = Math.hypot(dx, dy * 1.5, dz); if (d > R) continue;                  // about 5 blocks wide, only 1-2 deep
     const x = cx + dx, y = cy + dy, z = cz + dz, id = getBlock(x, y, z);
     if (!id || id === 25 || id === 27 || id === 28) continue;                      // spawners and gateways survive
+    if (blastBlocked(m.pos.x, m.pos.y + 0.8, m.pos.z, x, y, z, 0.8)) continue;       // blocks behind other blocks stay
     if (Math.random() > 0.95 - d * 0.15) continue;                                   // ragged crater: the edge only partly breaks
     if (setBlock(x, y, z, 0)) { netBlock(x, y, z, 0); n++; }
   }
@@ -1904,6 +1911,52 @@ function updateCorpses(dt) {
   }
 }
 
+// ---------- pathfinding for zombies and creepers: A* over standing cells (walk, step up 1, drop up to 3), so they go round walls, climb stairs and find doors/gaps ----------
+const PF_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const pfOpen = (x, y, z) => { const id = getBlock(x, y, z); return !isSolidId(id) && !isLiquid(id); };
+const pfStand = (x, y, z) => pfOpen(x, y, z) && pfOpen(x, y + 1, z) && isSolidId(getBlock(x, y - 1, z));
+const pfKey = (x, y, z) => ((x + 100000) * 200003 + (z + 100000)) * 128 + (y + 64);
+function findPath(sx, sy, sz, gx, gy, gz, maxNodes) {
+  const open = [], nodes = new Map(), cap = maxNodes || 500;
+  const h = (x, y, z) => Math.abs(x - gx) + Math.abs(z - gz) + Math.abs(y - gy) * 0.6;
+  const push = n => { open.push(n); let i = open.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (open[p].f <= n.f) break; open[i] = open[p]; i = p; } open[i] = n; };
+  const pop = () => { const top = open[0], last = open.pop(); if (open.length) { let i = 0; for (;;) { let c = i * 2 + 1; if (c >= open.length) break; if (c + 1 < open.length && open[c + 1].f < open[c].f) c++; if (open[c].f >= last.f) break; open[i] = open[c]; i = c; } open[i] = last; } return top; };
+  const start = { x: sx, y: sy, z: sz, g: 0, f: h(sx, sy, sz), par: null, closed: false };
+  nodes.set(pfKey(sx, sy, sz), start); push(start);
+  let best = start, bh = start.f, count = 0;
+  while (open.length && count < cap) {
+    const n = pop(); if (n.closed) continue; n.closed = true; count++;
+    const hn = h(n.x, n.y, n.z); if (hn < bh) { bh = hn; best = n; }
+    if (n.x === gx && n.z === gz && Math.abs(n.y - gy) <= 1) { best = n; break; }
+    for (const [dx, dz] of PF_DIRS) {
+      const x = n.x + dx, z = n.z + dz; let y = null, cost = 1;
+      if (pfStand(x, n.y, z)) y = n.y;
+      else if (pfOpen(n.x, n.y + 2, n.z) && pfStand(x, n.y + 1, z)) { y = n.y + 1; cost = 1.6; }                          // step up one block (needs headroom)
+      else if (pfOpen(x, n.y, z) && pfOpen(x, n.y + 1, z)) { for (let k = 1; k <= 3; k++) if (pfStand(x, n.y - k, z)) { y = n.y - k; cost = 1 + k * 0.3; break; } }   // drop down
+      if (y === null) continue;
+      const key = pfKey(x, y, z), g = n.g + cost; let m = nodes.get(key);
+      if (m) { if (m.closed || m.g <= g) continue; m.g = g; m.f = g + h(x, y, z); m.par = n; push(m); }
+      else { m = { x, y, z, g, f: g + h(x, y, z), par: n, closed: false }; nodes.set(key, m); push(m); }
+    }
+  }
+  const path = []; for (let n = best; n && n !== start; n = n.par) path.push([n.x, n.y, n.z]);
+  return path.reverse();
+}
+// where a monster should walk next: a waypoint from its cached path (recomputed every ~0.7 s or when you moved), or straight at you when nothing is in the way
+function pathStep(m, dt) {
+  const p = m.pos, fx = Math.round(p.x), fy = Math.floor(p.y + 0.55), fz = Math.round(p.z);
+  const gx = Math.round(player.pos.x), gy = Math.floor(player.pos.y + 0.55), gz = Math.round(player.pos.z);
+  m.pfT = (m.pfT === undefined ? Math.random() * 0.5 : m.pfT) - dt;
+  if (m.pfT <= 0 || !m.path || Math.abs(m.pfGx - gx) + Math.abs(m.pfGz - gz) > 3) {
+    m.pfT = 0.6 + Math.random() * 0.3; m.pfGx = gx; m.pfGz = gz;
+    m.path = Math.hypot(gx - fx, gz - fz) > 40 ? null : findPath(fx, fy, fz, gx, gy, gz, 450); m.pi = 0;
+  }
+  const path = m.path; if (!path || !path.length) return null;
+  while (m.pi < path.length - 1 && Math.hypot(path[m.pi][0] - p.x, path[m.pi][2] - p.z) < 0.4 && Math.abs(path[m.pi][1] - fy) <= 1) m.pi++;
+  const w = path[Math.min(m.pi, path.length - 1)];
+  if (m.pi >= path.length - 1 && Math.hypot(w[0] - p.x, w[2] - p.z) < 0.3) return null;     // arrived: head for the player itself
+  return { x: w[0], y: w[1], z: w[2], up: w[1] > fy };
+}
 function updateMonsters(dt) {
   const zombies = isNight && monstersEnabled && player.pos.x < VOID_X0;
   const isZ = q => q.kind !== 2 && q.kind !== 3 && q.kind !== 4;
@@ -1927,17 +1980,23 @@ function updateMonsters(dt) {
       continue;
     }
     if (m.kb > 0) { m.kb -= dt; m.vel.x *= 0.92; m.vel.z *= 0.92; }
-    else if (d > 0.1) { const sp = m.kind === 5 ? (m.fuse > 0 ? 0 : 2.2) : MONSTER_SPEED; m.vel.x = dx / d * sp; m.vel.z = dz / d * sp; }
-    if (d > 0.1) m.mesh.rotation.y = Math.atan2(dx, dz);
+    else if (d > 0.1) {
+      const sp = m.kind === 5 ? (m.fuse > 0 ? 0 : 2.2) : MONSTER_SPEED;
+      let tx = dx, tz = dz, wp = null;
+      if (d > 1.2) { try { wp = pathStep(m, dt); } catch (e) { wp = null; } }
+      if (wp) { tx = wp.x - p.x; tz = wp.z - p.z; }
+      const td = Math.hypot(tx, tz) || 1; m.vel.x = tx / td * sp; m.vel.z = tz / td * sp; m.wpUp = !!(wp && wp.up);
+    }
+    if (d > 0.1) m.mesh.rotation.y = m.vel.x || m.vel.z ? Math.atan2(m.vel.x, m.vel.z) : Math.atan2(dx, dz);
     if (m.kind === 5) {                                                // the fuse: close to you it hisses and swells, run away and it calms down
-      if (d < 3.2 && Math.abs(p.y - player.pos.y) < 2.5) m.fuse += dt; else m.fuse = Math.max(0, m.fuse - dt * 0.6);
+      if (d < 3.2 && Math.abs(p.y - player.pos.y) < 2.5 && !blastBlocked(p.x, p.y + 0.8, p.z, player.pos.x, player.pos.y + 0.9, player.pos.z, 0.3)) m.fuse += dt; else m.fuse = Math.max(0, m.fuse - dt * 0.6);
       const sw = 1 + m.fuse * 0.28; m.mesh.scale.set(sw, sw, sw);
       if (m.mat && m.mat.emissive) m.mat.emissive.setHex(m.fuse > 0 && Math.floor(m.fuse * 8) % 2 === 0 ? 0xdddddd : 0x1a3a18);
       if (m.fuse > 1.5) { explodeCreeper(m); continue; }
     }
     m.vel.y = Math.max(m.vel.y - 15 * dt, -40);
     const r = moveEntity(m, dt);
-    if ((r.x || r.z) && r.ground) m.vel.y = 6.2; // jump over 1-block obstacles
+    if (((r.x || r.z) || m.wpUp) && r.ground) m.vel.y = 6.2; // jump over 1-block obstacles / up the next step of the path
     m.phase += dt * 8;
     m.legL.rotation.x = Math.sin(m.phase) * 0.6;
     m.legR.rotation.x = -Math.sin(m.phase) * 0.6; m.armL.rotation.x = m.armR.rotation.x = -1.45 + Math.sin(m.phase * 0.5) * 0.08;
