@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-04T08:10">
+<meta name="sbx-build" content="2026-11-04T17:40">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -2857,8 +2857,24 @@ function fxResize(w, h) {
   FX.w = w; FX.h = h;
 }
 function fxPass(mat, target) { fxQuad.material = mat; renderer.setRenderTarget(target); renderer.render(fxScene, fxCam); }
+// VR can't use the render-target pipeline (two eyes, headset framebuffer), so there the same look is added inside every material's own shader instead: colour grading for Shaders, a highlight glow for Bloom
+const FXU = { fx: { value: 0 }, bl: { value: 0 } };
+THREE.Material.prototype.onBeforeCompile = function (sh) {
+  if (!sh || !sh.fragmentShader || sh.fragmentShader.indexOf('#include <dithering_fragment>') < 0) return;
+  sh.uniforms.uVrFx = FXU.fx; sh.uniforms.uVrBl = FXU.bl;
+  sh.fragmentShader = 'uniform float uVrFx;\nuniform float uVrBl;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+    if (uVrFx > 0.5) {
+      vec3 c = gl_FragColor.rgb; float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(vec3(l), c, 1.22); c *= vec3(1.05, 1.0, 0.93);
+      vec3 a = c * 1.1; c = mix(c, clamp((a * (2.51 * a + 0.03)) / (a * (2.43 * a + 0.59) + 0.14), 0.0, 1.0), 0.65);
+      gl_FragColor.rgb = (c - 0.5) * 1.07 + 0.5;
+    }
+    if (uVrBl > 0.5) { float m = max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b)); gl_FragColor.rgb += gl_FragColor.rgb * smoothstep(0.6, 0.95, m) * 0.5; }`);
+};
 function renderFrame() {
-  if ((!FX.shaders && !FX.bloom) || renderer.xr.isPresenting) { renderer.render(scene, camera); return; }
+  const vr = !!(renderer.xr && renderer.xr.isPresenting);
+  FXU.fx.value = vr && FX.shaders ? 1 : 0; FXU.bl.value = vr && FX.bloom ? 1 : 0;
+  if ((!FX.shaders && !FX.bloom) || vr) { renderer.render(scene, camera); return; }
   try {
     if (!FX.ok) fxInit();
     const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
