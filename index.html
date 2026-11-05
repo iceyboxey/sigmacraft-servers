@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-04T17:40">
+<meta name="sbx-build" content="2026-11-05T09:40">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -121,6 +121,10 @@
   #daytime-fill { height: 100%; width: 50%; background: #FFD700; border-radius: 4px; }
   #hungerbar { position: fixed; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; pointer-events: none; font-size: 16px; }
   body.touch #hungerbar { bottom: 46px; }
+  #xpbar { position: fixed; bottom: 108px; left: 50%; transform: translateX(-50%); width: 280px; height: 8px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.25); border-radius: 5px; pointer-events: none; }
+  #xpfill { height: 100%; width: 0; background: #7CFC3A; border-radius: 4px; transition: width 0.25s; }
+  #xplv { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); font: bold 14px Arial; color: #7CFC3A; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; }
+  body.touch #xpbar { bottom: 2px; width: 200px; }
   #hpbar { position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: none; }
   .heart { font-size: 22px; }
   #toast {
@@ -229,6 +233,7 @@
 </div>
 <div id="hungerbar"></div>
 <div id="hpbar"></div>
+<div id="xpbar"><div id="xpfill"></div><span id="xplv"></span></div>
 <div id="warning" data-i18n="warning"></div>
 <div id="info"></div>
 <div id="perf">FPS: --</div>
@@ -451,7 +456,7 @@ scene.add(ambientLight);
 // =====================================================
 // PROCEDURAL TEXTURE ATLAS (16x16 pixel tiles)
 // =====================================================
-const TILE = 16, NT = 77;
+const TILE = 16, NT = 78;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width = TILE * NT; atlasCanvas.height = TILE;
 const actx = atlasCanvas.getContext('2d');
@@ -629,6 +634,12 @@ for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const k = 0.85 + rnd
 RECT(31, 6, 6, 9, 9, [90, 120, 230]);
 for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const row = y >> 2, xo = (x + (row & 1) * 4) & 7, k = 0.9 + rnd() * 0.2, line = (y & 3) === 3 || xo === 7; PX(32, x, y, (line ? 84 : 124) * k, (line ? 84 : 124) * k, (line ? 90 : 128) * k); }
 // item icons (transparent background)
+// 77 mace: a steel spiked head on a long wooden handle
+actx.clearRect(77 * TILE, 0, TILE, TILE);
+for (let i = 0; i < 9; i++) { PX(77, 2 + i, 13 - i, 112, 80, 42); PX(77, 3 + i, 13 - i, 86, 60, 30); }
+for (let y = 1; y <= 6; y++) for (let x = 8; x <= 13; x++) { const e = (x === 8 || x === 13) && (y === 1 || y === 6), v = 150 + ((x * 7 + y * 13) % 5) * 12 - (x > 11 ? 30 : 0) - (y > 4 ? 25 : 0); if (!e) PX(77, x, y, v, v, v + 8); }
+for (const [x, y] of [[7, 3], [14, 3], [10, 0], [11, 7], [7, 6], [14, 6]]) PX(77, x, y, 205, 205, 215);
+PX(77, 9, 2, 235, 235, 245); PX(77, 10, 2, 235, 235, 245);
 const HANDLE = [112, 80, 42], TIER = [null, [166, 116, 58], [138, 138, 142], [220, 220, 228]];
 LN(33, 3, 13, 12, 4, 2, HANDLE);                                                                  // 33 stick
 BLOB(34, 7.5, 8.5, 4.6, 4.2, [38, 38, 42]); for (const [x, y] of [[5, 6], [9, 7], [7, 10]]) PX(34, x, y, 84, 86, 96);   // 34 coal
@@ -755,7 +766,7 @@ const ITEMDEF = [
   [127, 57, 'Bucket', 'Eimer'], [128, 58, 'Water bucket', 'Wassereimer'], [129, 59, 'Lava bucket', 'Lavaeimer'],
   [130, 60, 'Raw mutton', 'Rohes Hammelfleisch'], [131, 61, 'Cooked mutton', 'Gebratenes Hammelfleisch'],
   [132, 62, 'ද', 'ද'], [133, 63, 'Gateway pointer', 'Tor-Zeiger'],
-  [139, 75, 'Raw fish', 'Roher Fisch'], [140, 76, 'Cooked fish', 'Gebratener Fisch'], [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
+  [139, 75, 'Raw fish', 'Roher Fisch'], [140, 76, 'Cooked fish', 'Gebratener Fisch'], [141, 77, 'Mace', 'Streitkolben'], [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
 ];
 const ITEMS = {};
 const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'Stein'], 4: ['Sand', 'Sand'], 5: ['Wood', 'Holz'], 6: ['Snow', 'Schnee'], 7: ['Brick', 'Ziegel'], 8: ['Planks', 'Bretter'], 9: ['Leaves', 'Laub'],
@@ -781,7 +792,7 @@ const wLvl = id => id === 16 ? 0 : (id >= 33 && id <= 39 ? id - 32 : -1);       
 const lLvl = id => id === 17 ? 0 : (id >= 40 && id <= 42 ? id - 39 : -1);       // lava: 0 = source, 1-3 = flowing
 const isWaterId = id => id === 16 || (id >= 33 && id <= 39), isLavaId = id => id === 17 || (id >= 40 && id <= 42);
 // ---------- Inventory: everything you mine drops as a small block; picking it up fills the corner panel ----------
-const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140];
+const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141];
 const inv = {}; for (const i of ITEM_IDS) inv[i] = 0;
 try {
   const sv = JSON.parse(localStorage.getItem('sbx_inv') || '{}');
@@ -1149,6 +1160,7 @@ function genVoid(data, cx, cz) {                                  // the Void: n
       }
     }
     if (Math.abs(dx) <= 6 && Math.abs(dz) <= 6) { put(lx, 0, lz, 26); put(lx, -1, lz, 14); }
+    if (dx === 10 && dz === 8) put(lx, 1, lz, 15);                // a chest on the big platform
     if (dz === -4 && Math.abs(dx) <= 2) {                         // the way back
       for (let y = 1; y <= 5; y++) { const ax = Math.abs(dx); if (ax <= 1 && y <= 4) put(lx, y, lz, 28); else if ((ax === 2 && y <= 5) || y === 5) put(lx, y, lz, 27); }
     }
@@ -1166,6 +1178,19 @@ function genVoid(data, cx, cz) {                                  // the Void: n
     }
     if (hash2(ia * 19 + 2, ib * 23 + 6) < 0.3 && icx >= x0 && icx < x0 + 16 && icz >= z0 && icz < z0 + 16) put(icx - x0, icy + 1, icz - z0, 15);   // some islands have a chest
   }
+}
+function resetVoidLocal() {                                      // the Void starts over: forget everything built there
+  if (player.pos.x >= VOID_X0) return;
+  for (const k of [...chunkEdits.keys()]) if (Math.floor(k / 65536) - 32768 >= (VOID_X0 >> 4)) chunkEdits.delete(k);
+  for (const ch of [...chunks.values()]) if (ch.cx >= (VOID_X0 >> 4)) unloadChunk(ch);
+  for (const k of [...openedChests]) if (+String(k).split(',')[0] >= VOID_X0) openedChests.delete(k);
+  for (let i = drops.length - 1; i >= 0; i--) if (drops[i].x >= VOID_X0) removeDrop(i);
+}
+let wasInVoid = false;
+function voidWatch() {                                           // offline there is no server to notice: leaving the Void resets it
+  const iv = player.pos.x >= VOID_X0;
+  if (wasInVoid && !iv && netState !== 'on') resetVoidLocal();
+  wasInVoid = iv;
 }
 function finishChunk(cx, cz, key, data) {
   const ed = chunkEdits.get(key);
@@ -1403,8 +1428,8 @@ function arrowHit(a) {                                            // true when t
     const hgt = m.kind === 2 ? 1.1 : m.kind === 3 ? 0.8 : m.kind === 4 ? 0.35 : 1.9;
     if (Math.abs(a.pos.x - m.pos.x) < 0.5 && Math.abs(a.pos.z - m.pos.z) < 0.5 && a.pos.y > m.pos.y - 0.1 && a.pos.y < m.pos.y + hgt) {
       const l = Math.hypot(a.vel.x, a.vel.z) || 1, kx = a.vel.x / l, kz = a.vel.z / l, dmg = 5;
-      if (m.net) netSend({ t: 'ehit', id: m.id, d: dmg, kx: +kx.toFixed(2), kz: +kz.toFixed(2) });
-      else { m.hp -= dmg; m.kb = 0.35; m.vel.set(kx * 6, 3, kz * 6); if (m.hp <= 0) killMonster(m); }
+      if (m.net) { m.lastMine = performance.now(); netSend({ t: 'ehit', id: m.id, d: dmg, kx: +kx.toFixed(2), kz: +kz.toFixed(2) }); }
+      else { m.hp -= dmg; m.kb = 0.35; m.vel.set(kx * 6, 3, kz * 6); if (m.hp <= 0) { addXp(XP_MOB[m.kind] || 0); killMonster(m); } }
       return true;
     }
   }
@@ -1459,7 +1484,13 @@ function updatePointers(dt) {
   }
   for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > 40) { scene.remove(beams[i].b); beams.splice(i, 1); } }
 }
+let bedSpawn = null; try { bedSpawn = JSON.parse(localStorage.getItem('sbx_bed') || 'null'); } catch (e) {}
 function respawnPlayer(useSaved) {
+  if (!useSaved && bedSpawn && Number.isFinite(bedSpawn.x) && bedSpawn.x < VOID_X0) {          // dying: wake up in your own bed
+    player.pos.set(bedSpawn.x, bedSpawn.y + 1.05, bedSpawn.z); player.vel.set(0, 0, 0); loadAroundPlayerNow(1);
+    if (getBlock(bedSpawn.x, bedSpawn.y, bedSpawn.z) === 24) { let n = 0; while (n < 6 && boxCollides(player.pos.x, player.pos.y, player.pos.z, player.hw, player.h)) { player.pos.y += 1; n++; } if (n < 6) return; }
+    bedSpawn = null; try { localStorage.removeItem('sbx_bed'); } catch (e) {} try { toast('Your bed was missing'); } catch (e) {}
+  }
   const sv = useSaved ? loadSavedPos() : null;
   if (sv) {
     player.pos.set(sv.x, sv.y, sv.z); player.vel.set(0, 0, 0);
@@ -1597,6 +1628,21 @@ function updateHungerBar() {
     h.textContent = '🍗'; h.style.opacity = v >= 2 ? 1 : v >= 1 ? 0.6 : 0.22; if (v < 1) h.style.filter = 'grayscale(1)'; hb.appendChild(h);
   }
 }
+// ---------- XP: killing mobs and mining ores gives experience; every level makes mining 3 % faster (up to level 20). Saved in the browser ----------
+let xp = 0;
+try { const v = parseInt(localStorage.getItem('sbx_xp')); if (Number.isFinite(v) && v > 0) xp = v; } catch (e) {}
+const xpNeed = lv => 8 + lv * 4;                                   // XP needed to go from level lv to lv + 1
+function xpLevel() { let lv = 0, left = xp; while (left >= xpNeed(lv)) { left -= xpNeed(lv); lv++; } return { lv, left, need: xpNeed(lv) }; }
+function xpUI() { const q = xpLevel(); el('xpfill').style.width = Math.round(q.left / q.need * 100) + '%'; el('xplv').textContent = 'Lv ' + q.lv + ' · ' + q.left + '/' + q.need + ' XP'; }
+function addXp(n) {
+  if (!(n > 0)) return;
+  const before = xpLevel().lv; xp += Math.floor(n); try { localStorage.setItem('sbx_xp', String(xp)); } catch (e) {}
+  xpUI(); const after = xpLevel().lv;
+  if (after > before) toast('⭐ Level ' + after + (after <= 20 ? ' · mining +' + after * 3 + '%' : ''));
+}
+const XP_MOB = { 1: 5, 5: 6, 2: 2, 3: 2, 4: 1 };
+const XP_ORE = { 18: 1, 30: 1, 19: 2, 31: 2, 20: 3, 32: 3, 29: 6 };
+const xpMining = () => 1 + Math.min(xpLevel().lv, 20) * 0.03;
 function updateHpBar() {
   vrDirty = true;
   const hp = el('hpbar'); hp.innerHTML = '';
@@ -1611,8 +1657,29 @@ function updateInfo() { el('info').textContent = t(touchMode ? 'info_touch' : 'i
 
 let deathT = 0;
 const deathF = () => Math.min(1, deathT * 3);
+// ---------- beds: right-click sets your spawn point; at night it puts you to sleep, and when EVERYBODY online is asleep the night is skipped ----------
+let sleeping = null, sleepInfo = '';
+(function () { const d = document.createElement('div'); d.id = 'sleepfx'; d.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:150;transition:opacity 1.5s;display:flex;align-items:flex-end;justify-content:center;color:#cde;font:bold 18px Arial;padding-bottom:18vh;text-align:center'; document.body.appendChild(d); })();
+function setSleepUI(on) { const d = el('sleepfx'); d.style.opacity = on ? '0.78' : '0'; d.textContent = on ? ('😴 ' + sleepInfo + '\nmove to get up') : ''; d.style.whiteSpace = 'pre-line'; }
+function wakeUp(msg) { if (!sleeping) return; sleeping = null; sleepInfo = ''; setSleepUI(false); if (netState === 'on') netSend({ t: 'sleep', on: 0 }); if (msg) toast(msg); }
+function useBed(x, y, z) {
+  bedSpawn = { x, y, z }; try { localStorage.setItem('sbx_bed', JSON.stringify(bedSpawn)); } catch (e) {}
+  if (!isNight) { toast('🛏️ Spawn point set (you can only sleep at night)'); return; }
+  if (player.pos.x >= VOID_X0) { toast('You cannot sleep here'); return; }
+  for (const q of monsters) if ((q.kind === 1 || q.kind === 5) && Math.hypot(q.pos.x - x, q.pos.z - z) < 9 && Math.abs(q.pos.y - y) < 5) { toast('🛏️ Spawn point set, but monsters are too close to sleep'); return; }
+  sleeping = { x, y, z }; sleepInfo = 'Sleeping…';
+  if (netState === 'on') { netSend({ t: 'sleep', on: 1 }); } else { cycleTime = 0; wakeUp('☀️ Good morning!'); return; }
+  setSleepUI(true); toast('🛏️ Spawn point set');
+}
+function sleepTick() {
+  if (!sleeping) return;
+  const moved = keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'] || keys['Space'] || Math.hypot(joy.x, joy.y) > 0.3 || (xrActive && Math.hypot(vr.f, vr.sd) > 0.3) || Math.hypot(player.pos.x - sleeping.x, player.pos.z - sleeping.z) > 3;
+  if (moved || !player.alive) { wakeUp(); return; }
+  if (!isNight) wakeUp();
+}
 function takeDamage(by) {
   if (player.invincible > 0 || !player.alive) return;
+  if (sleeping) wakeUp();
   player.hp--; player.invincible = 1.5; player.regen = 0;
   updateHpBar();
   const flash = document.createElement('div');
@@ -1620,7 +1687,7 @@ function takeDamage(by) {
   document.body.appendChild(flash);
   setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 500); }, 100);
   if (player.hp <= 0) {
-    player.alive = false; netSend({ t: 'died' });
+    player.alive = false; vrDirty = true; netSend({ t: 'died' });
     el('go-txt').textContent = by === 'lava' ? t('gameover_lava') : by === 'void' ? 'You fell into the void!' : by ? t('gameover_pvp').replace('{n}', by) : t('gameover_txt');
     el('gameover').style.display = 'flex';
     if (locked) document.exitPointerLock();
@@ -1628,7 +1695,7 @@ function takeDamage(by) {
 }
 function restartGame() {
   hunger = 20; updateHungerBar();
-  player.hp = player.maxHp; player.alive = true; player.invincible = 0; netSend({ t: 'alive' });
+  player.hp = player.maxHp; player.alive = true; vrDirty = true; player.invincible = 0; netSend({ t: 'alive' });
   for (let i = monsters.length - 1; i >= 0; i--) removeMonster(i);
   if (netState !== 'on') cycleTime = 0;     // online, the time of day belongs to the server
   touch.jump = false; touch.breakHeld = false; kb.x = kb.z = 0;
@@ -2047,8 +2114,12 @@ let attackHeld = false, hitEntityT = 0, mine = { key: '', p: 0 };
 const crack = new THREE.Mesh(new THREE.BoxGeometry(1.03, 1.03, 1.03), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }));
 crack.visible = false; scene.add(crack);
 function toolFor(kind) { const L = TOOLS[kind]; for (let i = L.length - 1; i >= 0; i--) if (inv[L[i][0]] > 0) return L[i]; return null; }
-const swordDmg = () => { const t = toolFor('sword'); return t ? t[1] : 1; };
-function breakTimeOf(bid) { const bi = BLOCK_INFO[bid] || { h: 0.6 }, tl = bi.t ? toolFor(bi.t) : null; return bi.h / TIER_SPEED[tl ? tl[1] : 0]; }
+let fallPeak = 0;                                               // highest point of the current fall (for the mace)
+function fallTrack() { if (player.onGround || player.pos.y > fallPeak) fallPeak = player.pos.y; }
+function maceSmash() { const f = fallPeak - player.pos.y; return !player.onGround && f > 1.5 ? Math.min(16, Math.floor(f * 2.5)) : 0; }   // the longer the fall, the harder the hit
+function maceHit() { const sm = maceSmash(); if (sm > 0) { fallPeak = player.pos.y; toast('💥 Smash! +' + sm); } return 6 + sm; }
+const swordDmg = () => { if (selectedType === 141 && inv[141] > 0) return maceHit(); const t = toolFor('sword'); return t ? t[1] : 1; };
+function breakTimeOf(bid) { const bi = BLOCK_INFO[bid] || { h: 0.6 }, tl = bi.t ? toolFor(bi.t) : null; return bi.h / TIER_SPEED[tl ? tl[1] : 0] / xpMining(); }
 function canHarvest(bid) { const bi = BLOCK_INFO[bid]; if (!bi || !bi.min) return true; const tl = bi.t ? toolFor(bi.t) : null; return (tl ? tl[1] : 0) >= bi.min; }
 function dropFor(bid) {                                           // [item, count] or null (wrong tool = nothing drops)
   if (!canHarvest(bid) || bid === 25) return null;
@@ -2061,6 +2132,7 @@ function dropFor(bid) {                                           // [item, coun
 function breakBlockAt(t) {
   const bid = getBlock(t.x, t.y, t.z); if (!bid) return;
   const drop = dropFor(bid), online = netState === 'on', d = isDoorId(bid) ? doorParts(t.x, t.y, t.z) : null;
+  if (drop && XP_ORE[bid]) addXp(XP_ORE[bid]);
   if (d) {
     doorSet(t.x, d[0], t.z, 0, online && drop ? drop[0] : 0); doorSet(t.x, d[1], t.z, 0);        // breaking a door removes both halves
     if (!online && drop) spawnDrop(t.x, d[0] + 0.5, t.z, drop[0]);
@@ -2105,11 +2177,11 @@ function doAttack() {
     if (m) {
       hitEntityT = 0.3;
       const l = Math.hypot(_dir.x, _dir.z) || 1;
-      if (m.net) netSend({ t: 'ehit', id: m.id, d: swordDmg(), kx: +(_dir.x / l).toFixed(2), kz: +(_dir.z / l).toFixed(2) });   // the player who simulates it applies the hit
+      if (m.net) { m.lastMine = performance.now(); netSend({ t: 'ehit', id: m.id, d: swordDmg(), kx: +(_dir.x / l).toFixed(2), kz: +(_dir.z / l).toFixed(2) }); }   // the player who simulates it applies the hit
       else {
         m.hp -= swordDmg(); m.kb = 0.35;
         m.vel.set(_dir.x / l * 7, 4, _dir.z / l * 7);
-        if (m.hp <= 0) killMonster(m);
+        if (m.hp <= 0) { addXp(XP_MOB[m.kind] || 0); killMonster(m); }
       }
     }
   } else if (vh && vh.dist < vd && vh.dist <= md && vh.dist <= pd) {
@@ -2160,7 +2232,7 @@ function onEnts(m) {
     else {
       seen.add(id);
       let mo = monsters.find(q => q.id === id);
-      if (hp <= 0) { if (mo && mo.net) { if (k === 5) removeMonster(monsters.indexOf(mo)); else killMonster(mo); } continue; }                      // the owner says it died
+      if (hp <= 0) { if (mo && mo.net) { if (mo.lastMine && performance.now() - mo.lastMine < 4000) addXp(XP_MOB[mo.kind] || 0); if (k === 5) removeMonster(monsters.indexOf(mo)); else killMonster(mo); } continue; }                      // the owner says it died
       if (!mo) {
         if (k === 2) { if (Math.hypot(x - player.pos.x, z - player.pos.z) > 100) continue; mo = buildSheep(x, y, z); }
         else if (k === 3 || k === 4) { if (Math.hypot(x - player.pos.x, z - player.pos.z) > 100) continue; mo = k === 3 ? buildCat(x, y, z, id) : buildFish(x, y, z, id); }
@@ -2461,6 +2533,7 @@ function chestLoot(x, y, z) {                                   // same chest = 
   if (r(6) < 0.5) loot.push([8, n(7, 2, 6)]);
   if (r(8) < 0.3) loot.push([7, n(9, 2, 5)]);
   if (r(10) < 0.15) loot.push([14, n(11, 2, 5)]);
+  if (x >= VOID_X0 && ((x === VOID_CX + 10 && z === 8) || r(20) < 0.5)) loot.push([141, 1]);          // the Void hides maces: one chest on the big platform always has one
   return loot;
 }
 function openChest(x, y, z) {
@@ -2468,7 +2541,7 @@ function openChest(x, y, z) {
   if (openedChests.has(key)) { toast(t('chest_empty')); return; }
   const loot = chestLoot(x, y, z);
   openedChests.add(key);
-  try { localStorage.setItem('sbx_chests', JSON.stringify([...openedChests].slice(-3000))); } catch (e) {}
+  try { localStorage.setItem('sbx_chests', JSON.stringify([...openedChests].filter(k => +String(k).split(',')[0] < VOID_X0).slice(-3000))); } catch (e) {}
   for (const [id, c] of loot) addItem(id, c);
   toast('📦 ' + t('chest_got') + ': ' + loot.map(([id, c]) => c + '× ' + iname(id)).join(', '));
 }
@@ -2545,6 +2618,7 @@ function doPlace() {
   const vh = pickVillager(), vd0 = target ? Math.hypot(target.x - aim.x, target.y - aim.y, target.z - aim.z) - 0.5 : Infinity;
   if (vh && vh.dist < vd0) { villagerSay(vh.vl, 'talk'); return; }                     // talk to a villager
   if (target && isDoorId(getBlock(target.x, target.y, target.z))) { toggleDoor(target.x, target.y, target.z); return; }   // use the door
+  if (target && getBlock(target.x, target.y, target.z) === 24) { useBed(target.x, target.y, target.z); return; }                                 // sleep / set spawn
   if (target && getBlock(target.x, target.y, target.z) === 15) { openChest(target.x, target.y, target.z); return; }       // open the chest
   if (target && (getBlock(target.x, target.y, target.z) === 21 || getBlock(target.x, target.y, target.z) === 22)) { openCraft(); return; }   // crafting table / furnace
   if (FOOD[selectedType]) { eatSelected(); return; }                                    // holding food: eat it
@@ -2826,7 +2900,7 @@ let fxScene, fxCam, fxQuad;
 function fxInit() {
   fxCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); fxScene = new THREE.Scene();
   const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
-  const mk = (fs, u) => new THREE.ShaderMaterial({ vertexShader: vs, fragmentShader: 'precision highp float; varying vec2 vUv;\n' + fs, uniforms: u, depthTest: false, depthWrite: false });
+  const mk = (fs, u) => new THREE.ShaderMaterial({ vertexShader: vs, fragmentShader: '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\nvarying vec2 vUv;\n' + fs, uniforms: u, depthTest: false, depthWrite: false });
   fxM.bright = mk('uniform sampler2D tD; void main(){ vec3 c = texture2D(tD, vUv).rgb; float l = max(c.r, max(c.g, c.b)); float k = smoothstep(0.68, 0.95, l); gl_FragColor = vec4(c * k, 1.0); }', { tD: { value: null } });
   fxM.blur = mk('uniform sampler2D tD; uniform vec2 dir; void main(){ vec3 s = texture2D(tD, vUv).rgb * 0.2270270270; s += (texture2D(tD, vUv + dir * 1.3846153846).rgb + texture2D(tD, vUv - dir * 1.3846153846).rgb) * 0.3162162162; s += (texture2D(tD, vUv + dir * 3.2307692308).rgb + texture2D(tD, vUv - dir * 3.2307692308).rgb) * 0.0702702703; gl_FragColor = vec4(s, 1.0); }', { tD: { value: null }, dir: { value: new THREE.Vector2() } });
   fxM.final = mk(`uniform sampler2D tD, tB1, tB2; uniform float uBloom, uFx, uTime;
@@ -2840,7 +2914,7 @@ function fxInit() {
         vec3 a = c * 1.1; c = mix(c, clamp((a * (2.51 * a + 0.03)) / (a * (2.43 * a + 0.59) + 0.14), 0.0, 1.0), 0.65);   // filmic curve
         c = (c - 0.5) * 1.07 + 0.5;
         float v = distance(vUv, vec2(0.5)); c *= 1.0 - smoothstep(0.35, 0.95, v) * 0.5;   // vignette
-        c += (fract(sin(dot(vUv * 913.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012; // fine grain hides colour banding
+        c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012; // fine grain hides colour banding
       }
       gl_FragColor = vec4(c, 1.0);
     }`, { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, uBloom: { value: 0 }, uFx: { value: 0 }, uTime: { value: 0 } });
@@ -2881,13 +2955,14 @@ function renderFrame() {
     if (sz.x !== FX.w || sz.y !== FX.h) fxResize(sz.x, sz.y);
     renderer.setRenderTarget(fxRT.scene); renderer.clear(); renderer.render(scene, camera);
     if (FX.bloom) {
+      const bs = Math.max(0.5, Math.min(2.5, FX.h / 900));                  // the glow is the same size on every screen (a share of the screen height), not a fixed number of pixels
       fxM.bright.uniforms.tD.value = fxRT.scene.texture; fxPass(fxM.bright, fxRT.a);
-      fxM.blur.uniforms.tD.value = fxRT.a.texture; fxM.blur.uniforms.dir.value.set(1 / fxRT.a.width, 0); fxPass(fxM.blur, fxRT.b);
-      fxM.blur.uniforms.tD.value = fxRT.b.texture; fxM.blur.uniforms.dir.value.set(0, 1 / fxRT.a.height); fxPass(fxM.blur, fxRT.a);
-      fxM.blur.uniforms.tD.value = fxRT.a.texture; fxM.blur.uniforms.dir.value.set(1 / fxRT.c.width, 0); fxPass(fxM.blur, fxRT.c);
-      fxM.blur.uniforms.tD.value = fxRT.c.texture; fxM.blur.uniforms.dir.value.set(0, 1 / fxRT.c.height); fxPass(fxM.blur, fxRT.d);
-      fxM.blur.uniforms.tD.value = fxRT.d.texture; fxM.blur.uniforms.dir.value.set(2 / fxRT.c.width, 0); fxPass(fxM.blur, fxRT.c);
-      fxM.blur.uniforms.tD.value = fxRT.c.texture; fxM.blur.uniforms.dir.value.set(0, 2 / fxRT.c.height); fxPass(fxM.blur, fxRT.d);
+      fxM.blur.uniforms.tD.value = fxRT.a.texture; fxM.blur.uniforms.dir.value.set(bs / fxRT.a.width, 0); fxPass(fxM.blur, fxRT.b);
+      fxM.blur.uniforms.tD.value = fxRT.b.texture; fxM.blur.uniforms.dir.value.set(0, bs / fxRT.a.height); fxPass(fxM.blur, fxRT.a);
+      fxM.blur.uniforms.tD.value = fxRT.a.texture; fxM.blur.uniforms.dir.value.set(bs / fxRT.c.width, 0); fxPass(fxM.blur, fxRT.c);
+      fxM.blur.uniforms.tD.value = fxRT.c.texture; fxM.blur.uniforms.dir.value.set(0, bs / fxRT.c.height); fxPass(fxM.blur, fxRT.d);
+      fxM.blur.uniforms.tD.value = fxRT.d.texture; fxM.blur.uniforms.dir.value.set(2 * bs / fxRT.c.width, 0); fxPass(fxM.blur, fxRT.c);
+      fxM.blur.uniforms.tD.value = fxRT.c.texture; fxM.blur.uniforms.dir.value.set(0, 2 * bs / fxRT.c.height); fxPass(fxM.blur, fxRT.d);
     }
     const u = fxM.final.uniforms; u.tD.value = fxRT.scene.texture; u.tB1.value = fxRT.a.texture; u.tB2.value = fxRT.d.texture; u.uBloom.value = FX.bloom ? 1 : 0; u.uFx.value = FX.shaders ? 1 : 0;
     fxPass(fxM.final, null);
@@ -3025,7 +3100,7 @@ function bkDecodeV1(k) {                                  // the first version o
 }
 const bkValid = (x, y, z) => Number.isInteger(x) && Number.isInteger(y) && Number.isInteger(z) &&
   x >= -30000 && x <= 30000 && z >= -30000 && z <= 30000 && y >= Y_MIN && y < Y_MIN + Y_H;
-function bkSet(x, y, z, b, ts) { if (bkValid(x, y, z)) { bk.set(bkKey(x, y, z), ts * 64 + b); bkTouch(); } }
+function bkSet(x, y, z, b, ts) { if (x >= VOID_X0) return; if (bkValid(x, y, z)) { bk.set(bkKey(x, y, z), ts * 64 + b); bkTouch(); } }
 function bkTouch() { bkDirty = true; if (!bkSaveT) bkSaveT = setTimeout(bkSave, 4000); }
 
 function idbOpen() {
@@ -3056,7 +3131,7 @@ async function bkLoad() {
       const old = rec.ver !== 2;                                // convert an older local backup
       for (let i = 0; i < rec.k.length; i++) {
         const [x, y, z] = old ? bkDecodeV1(rec.k[i]) : bkDecode(rec.k[i]);
-        if (!bkValid(x, y, z) || !Number.isFinite(rec.v[i])) continue;
+        if (!bkValid(x, y, z) || x >= VOID_X0 || !Number.isFinite(rec.v[i])) continue;
         const v = old ? Math.floor(rec.v[i] / 16) * 64 + (rec.v[i] % 16) : rec.v[i];
         bk.set(bkKey(x, y, z), v); list.push([x, y, z, v % 64]);
       }
@@ -3081,6 +3156,7 @@ function bkFromServer(list) {                    // edits from the server: the n
     if (!Array.isArray(e) || e.length < 4) continue;
     const x = e[0], y = e[1], z = e[2], b = e[3], ts = Number.isFinite(e[4]) ? e[4] : 0;
     if (!bkValid(x, y, z) || !Number.isInteger(b) || b < 0 || b > MAX_BLOCK) continue;
+    if (x >= VOID_X0) { apply.push([x, y, z, b]); continue; }                  // the Void is never kept in the local backup: it resets when everybody leaves
     const k = bkKey(x, y, z); serverSeen.set(k, ts);
     const cur = bk.get(k);
     if (cur === undefined || ts > Math.floor(cur / 64)) { bk.set(k, ts * 64 + b); apply.push([x, y, z, b]); }
@@ -3163,11 +3239,14 @@ function netHandle(m) {
     case 'drop': spawnDrop(+m.x, +m.y, +m.z, +m.i, +m.did, +m.c); break;
     case 'gone': { const i = drops.findIndex(d => d.did === m.did); if (i >= 0) removeDrop(i); break; }
     case 'got': { const i = drops.findIndex(d => d.did === m.did); if (i >= 0) removeDrop(i); addItem(+m.i, Math.max(1, Math.min(9999, Math.floor(+m.c) || 1))); break; }
+    case 'voidreset': resetVoidLocal(); break;
     case 'reset': for (let i = drops.length - 1; i >= 0; i--) if (drops[i].did) removeDrop(i); knownReset = srvReset = m.r || Date.now() + clockOff; bk.clear(); serverSeen.clear(); chunkEdits.clear(); reloadWorld(); bkTouch(); break;
     case 'admin': isAdmin = !!m.ok; admStatus(m.ok ? 'adm_ok' : 'adm_bad'); if (m.ok && mySkin === 'blue') sendSkin(); break;
     case 'pos': { const r = remotes.get(m.id); if (r) { r.tx = m.x; r.ty = m.y; r.tz = m.z; r.yaw = m.yaw; r.pitch = Number.isFinite(m.pitch) ? m.pitch : 0; r.hT = Array.isArray(m.h) && m.h.length === 6 && m.h.every(Number.isFinite) ? m.h : null; if (!r.hT) r.hC = null; } break; }
     case 'block': bkFromServer([[m.x, m.y, m.z, m.b, m.ts]]); break;
     case 'time': if (typeof m.c === 'number') cycleTime = m.c; break;
+    case 'sleepers': if (sleeping) { sleepInfo = 'Sleeping… ' + (+m.s || 0) + '/' + (+m.n || 1) + ' in bed'; setSleepUI(true); } else if (isNight && +m.s > 0) { try { toast('😴 ' + (+m.s) + '/' + (+m.n) + ' players are in bed'); } catch (e) {} } break;
+    case 'wake': if (sleeping) wakeUp('☀️ Good morning!'); break;
     case 'boom': if ([m.x, m.y, m.z].every(Number.isFinite)) { boomEffect(m.x, m.y, m.z); boomHurt(m.x, m.y, m.z); } break;
     case 'swing': { const r = remotes.get(m.id); if (r) r.swing = 0.3; break; }
     case 'hit': { const r = remotes.get(m.id); if (r) r.flash = 0.25; break; }
@@ -3709,6 +3788,7 @@ renderInv(); updateHungerBar();
 applyFog(fogFar); applyRenderDist(renderDist);
 setTouchMode(touchMode);
 updateHpBar();
+xpUI();
 respawnPlayer(true);
 updateChunks();
 applyLang();
@@ -3727,6 +3807,22 @@ const vr = { hm: false, hmPrev: [null, null], hmv: { x: 0, z: 0 }, hmT: [false, 
 function vrRay(c) {                                              // origin + direction of a controller's pointer (world space)
   const e = c.matrixWorld.elements, dx = -e[8], dy = -e[9], dz = -e[10], l = Math.hypot(dx, dy, dz) || 1;
   return { o: new THREE.Vector3(e[12], e[13], e[14]), d: new THREE.Vector3(dx / l, dy / l, dz / l) };
+}
+function vrPanelHit(c) {                                          // where the controller points on the wrist panel (canvas pixels), or null
+  if (!vr.panel) return null;
+  vr.panel.updateWorldMatrix(true, false);
+  const a = vrRay(c), lo = vr.panel.worldToLocal(a.o.clone()), lp = vr.panel.worldToLocal(a.o.clone().add(a.d)), dz = lp.z - lo.z;
+  if (Math.abs(dz) < 1e-6) return null;
+  const t = -lo.z / dz; if (t < 0) return null;
+  const x = lo.x + (lp.x - lo.x) * t, y = lo.y + (lp.y - lo.y) * t;
+  if (Math.abs(x) > 0.12 || Math.abs(y) > 0.17) return null;
+  return { u: (x + 0.1) / 0.2 * 256, v: (0.15 - y) / 0.3 * 384 };
+}
+function vrDeadClick(c) { const h = vrPanelHit(c); if (h && h.u > 0 && h.u < 256 && h.v > 120 && h.v < 250) restartGame(); }
+function vrDeadTick() {                                           // dead in VR: keep the wrist panel up to date and let A / X respawn
+  if (VRM.open) vrMenuClose();
+  if (vrDirty) drawVrPanel();
+  for (const c of vr.ctrls) { const src = c.userData.src; if (!src) continue; const hand = src.handedness || String(c.userData.i); for (const b of vrButtons(src, hand)) if (b === 4) { restartGame(); return; } }
 }
 function vrAct(c, kind) {
   if (!xrActive || !player.alive || VRM.open) return;
@@ -3748,7 +3844,7 @@ function vrSetupOnce() {
       if (vr.panel && e.data && (e.data.handedness === 'left' || (!vr.panel.parent && e.data.handedness === 'none'))) c.add(vr.panel);
     });
     c.addEventListener('disconnected', () => { c.userData.src = null; });
-    c.addEventListener('selectstart', () => { if (VRM.open) { vrMenuClick(c); return; } vr.hold[i] = true; vrAct(c, 'break'); });
+    c.addEventListener('selectstart', () => { if (!player.alive) { vrDeadClick(c); return; } if (VRM.open) { vrMenuClick(c); return; } vr.hold[i] = true; vrAct(c, 'break'); });
     c.addEventListener('selectend', () => { vr.hold[i] = false; });
     c.addEventListener('squeezestart', () => { if (VRM.open) vrMenuClick(c); else vrAct(c, 'place'); });
     rig.add(c); vr.ctrls.push(c);
@@ -3766,6 +3862,14 @@ function drawVrPanel() {
   c.clearRect(0, 0, 256, 384); c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(0, 0, 256, 384);
   c.font = '30px sans-serif'; c.textBaseline = 'middle';
   for (let i = 0; i < player.maxHp; i++) { c.fillStyle = i < player.hp ? '#ff4040' : '#444'; c.fillText('♥', 12 + i * 46, 26); }
+  if (!player.alive) {                                                              // dead: "You died" and a Respawn button right under the hearts
+    c.textAlign = 'center'; c.fillStyle = '#ff6a6a'; c.font = 'bold 30px Arial'; c.fillText('💀 You died', 128, 100, 240);
+    c.fillStyle = '#2e9e3a'; c.fillRect(20, 140, 216, 84); c.strokeStyle = '#fff'; c.lineWidth = 3; c.strokeRect(21, 141, 214, 82);
+    c.fillStyle = '#fff'; c.font = 'bold 34px Arial'; c.fillText('Respawn', 128, 182, 200);
+    c.font = '17px Arial'; c.fillStyle = '#cde'; c.fillText('point here + trigger', 128, 262, 240); c.fillText('or press A / X', 128, 288, 240); c.textAlign = 'left';
+    if (vr.msg) { c.fillStyle = '#ffe9a8'; c.font = '15px Arial'; c.fillText(vr.msg, 6, 370, 244); }
+    vr.tex.needsUpdate = true; return;
+  }
   c.font = '19px sans-serif';                                                       // hunger, right under the hearts
   for (let i = 0; i < 10; i++) { const v = hunger - i * 2; c.globalAlpha = v >= 2 ? 1 : v >= 1 ? 0.6 : 0.2; c.fillText('🍗', 6 + i * 24, 60); }
   c.globalAlpha = 1;
@@ -3995,9 +4099,25 @@ function vrTargets() {                                           // pointer line
   target = mainHit;
   if (target) { highlight.position.set(target.x, target.y, target.z); highlight.visible = true; } else highlight.visible = false;
 }
+// No x-ray: walking in your room can push your head into a block. The head is stopped at the block (the player is pushed back, like a wall); if it still ends up inside (leaning down, a block placed on you) the view goes black.
+const vrBlack = (() => { const m = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({ color: 0x000000, depthTest: false, depthWrite: false, fog: false })); m.position.set(0, 0, -0.13); m.renderOrder = 9999; m.visible = false; m.frustumCulled = false; camera.add(m); return m; })();
+function headInBlock(x, y, z) { for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) if (isSolidId(getBlock(Math.round(x + sx * 0.13), Math.round(y + sy * 0.13), Math.round(z + sz * 0.13)))) return true; return false; }
+function vrHeadGuard() {
+  camera.updateMatrixWorld(true);
+  let e = camera.matrixWorld.elements, blocked = headInBlock(e[12], e[13], e[14]);
+  if (blocked && vr.lastHead) {
+    const ox = player.pos.x, oz = player.pos.z;
+    player.pos.x += vr.lastHead.x - e[12]; player.pos.z += vr.lastHead.z - e[14];
+    if (boxCollides(player.pos.x, player.pos.y, player.pos.z, player.hw, player.h)) { player.pos.x = ox; player.pos.z = oz; }
+    else { rig.position.set(player.pos.x, player.pos.y - 0.05, player.pos.z); rig.updateMatrixWorld(true); camera.updateMatrixWorld(true); e = camera.matrixWorld.elements; blocked = headInBlock(e[12], e[13], e[14]); }
+  }
+  if (!blocked) vr.lastHead = { x: e[12], y: e[13], z: e[14] };
+  vrBlack.visible = blocked;
+}
 function vrPostUpdate() {                                        // after movement: put the rig where the player is
   rig.position.set(player.pos.x, player.pos.y - 0.05, player.pos.z);
   rig.updateMatrixWorld(true);
+  try { vrHeadGuard(); } catch (e) {}
   if (VRM.open && (vrDirty || VRM.dirty)) drawVrMenu();
   if (vrDirty) drawVrPanel();
 }
@@ -4013,7 +4133,7 @@ async function enterVR() {
     renderer.setAnimationLoop(update);
     session.addEventListener('end', () => {
       xrActive = false; renderer.setAnimationLoop(null); renderer.xr.enabled = false;
-      rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); vr.hold[0] = vr.hold[1] = false; vrAim = null; vrMenuClose();
+      vrBlack.visible = false; vr.lastHead = null; rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); vr.hold[0] = vr.hold[1] = false; vrAim = null; vrMenuClose();
       camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(0, 0, 0);
       renderer.setSize(innerWidth, innerHeight); requestAnimationFrame(update);
     });
@@ -4047,7 +4167,7 @@ function update() {
     camera.position.set(player.pos.x, player.pos.y + EYE + 2, player.pos.z);
     updateDayNight(dt); renderFrame(); return;
   }
-  if (!player.alive) { netUpdate(dt); renderFrame(); return; }
+  if (!player.alive) { netUpdate(dt); if (xrActive) vrDeadTick(); renderFrame(); return; }
 
   fpsTimer += dt; frameCount++; hudTimer += dt;
   if (fpsTimer >= 0.5) {
@@ -4073,6 +4193,7 @@ function update() {
   if (xrActive) vrPreUpdate(dt);
   else { if (player.alive) deathT = 0; else deathT += dt; _euler.set(pitch, yaw, deathF() * 1.4, 'YXZ'); camera.quaternion.setFromEuler(_euler); }
 
+  sleepTick(); fallTrack(); voidWatch();
   // movement input
   let f = 0, sd = 0;
   if (keys['KeyW']) f += 1; if (keys['KeyS']) f -= 1;
