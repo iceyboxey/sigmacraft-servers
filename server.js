@@ -39,6 +39,16 @@ const rooms = new Map();
 const DROP_ITEMS = { has: i => Number.isInteger(i) && i >= 1 && i <= 200 && i !== 15 && i !== 16 && i !== 17 && i !== 25 && !(i >= 11 && i <= 13) }, MAX_DROPS = 300, DROP_LIFE = 300000;
 let dropSeq = 0;
 const dropsOf = r => r.drops || (r.drops = new Map());
+// The Void resets when the last player has left it: everything built or dropped there is wiped and the islands come back as new
+function voidCheck(room) {
+  if (!room.voidDirty) return;
+  for (const q of room.players.values()) if (q.x >= 24000) return;
+  room.voidDirty = false;
+  let n = 0; for (const k of [...room.edits.keys()]) if (+k.split(',')[0] >= 24000) { room.edits.delete(k); n++; }
+  if (room.drops) for (const [id, d] of [...room.drops]) if (d.x >= 24000) room.drops.delete(id);
+  if (n) markDirty();
+  broadcast(room, { t: 'voidreset' });
+}
 function addDrop(room, item, x, y, z, count, owner) {
   const d = dropsOf(room);
   if (d.size >= MAX_DROPS) { const old = d.keys().next().value; d.delete(old); broadcast(room, { t: 'gone', did: old }); }
@@ -47,6 +57,12 @@ function addDrop(room, item, x, y, z, count, owner) {
 }
 let dirtyLocal = false, dirtyGh = false, lastGhPush = 0;
 const sha = x => crypto.createHash('sha256').update(String(x)).digest('hex');
+function sleepCheck(room) {
+  const ps = [...room.players.values()].filter(q => !(q.x >= 24000)), n = ps.length; let s = 0; for (const q of ps) if (q.sleep) s++;
+  if (roomTime(room) < CYCLE / 2) { if (ps.some(q => q.sleep)) for (const q of ps) q.sleep = 0; broadcast(room, { t: 'sleepers', s: 0, n }); return; }
+  broadcast(room, { t: 'sleepers', s, n });
+  if (n && s === n) { room.timeBase = 0; room.timeStamp = Date.now(); for (const q of room.players.values()) q.sleep = 0; broadcast(room, { t: 'time', c: 0 }); broadcast(room, { t: 'wake' }); }
+}
 const roomTime = r => (r.timeBase + (Date.now() - r.timeStamp) / 1000) % CYCLE;
 function newRoom(id, name, pwHash) {
   const r = { id, name, pw: pwHash || '', resetAt: 0, edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now(), born: Date.now() };
@@ -228,7 +244,8 @@ function handle(p, m) {
   if (m.t === 'pos') {
     const x = num(m.x, -30000, 30000), y = num(m.y, -100, 300), z = num(m.z, -30000, 30000), yaw = num(m.yaw, -100, 100), pitch = num(m.pitch, -2, 2) || 0;
     if (x === null || y === null || z === null || yaw === null) return;
-    p.x = x; p.y = y; p.z = z; p.yaw = yaw; p.pitch = pitch;
+    const wasV = p.x >= 24000; p.x = x; p.y = y; p.z = z; p.yaw = yaw; p.pitch = pitch;
+    if (x >= 24000) room.voidDirty = true; else if (wasV) voidCheck(room);
     const h = Array.isArray(m.h) && m.h.length === 6 && m.h.every(v => typeof v === 'number' && Math.abs(v) < 8) ? m.h.map(v => Math.round(v * 100) / 100) : undefined;   // VR hands, relative to the feet
     broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw, pitch, h }, p.id);
   } else if (m.t === 'block') {
@@ -239,7 +256,7 @@ function handle(p, m) {
     const key = `${x},${y},${z}`;
     if (!room.edits.has(key) && room.edits.size >= MAX_EDITS) return;
     const ts = Date.now();
-    room.edits.set(key, ts * 64 + b); markDirty();
+    room.edits.set(key, ts * 64 + b); markDirty(); if (x >= 24000) room.voidDirty = true;
     broadcast(room, { t: 'block', x, y, z, b, ts }, p.id);
     send(p, { t: 'a', x, y, z, ts });        // tell the sender the official timestamp of its edit
     const di = int(m.d, 1, 200), cnt = int(m.n, 1, 4) || 1;
@@ -299,6 +316,8 @@ function handle(p, m) {
     const now = Date.now(); if (now - (p.ptrT || 0) < 1000) return; p.ptrT = now;
     const o = {}; for (const k of ['x', 'y', 'z', 'ux', 'uz', 'len', 'gx', 'gz']) { o[k] = Number(m[k]); if (!Number.isFinite(o[k])) return; }
     broadcast(room, { t: 'ptr', id: p.id, x: o.x, y: o.y, z: o.z, ux: o.ux, uz: o.uz, len: Math.min(70, Math.max(0, o.len)), gx: o.gx, gz: o.gz, arr: m.arr ? 1 : 0 }, p.id);
+  } else if (m.t === 'sleep') {         // in a bed at night: the night is skipped when everybody (outside the Void) is asleep
+    p.sleep = m.on && roomTime(room) >= CYCLE / 2 ? 1 : 0; sleepCheck(room);
   } else if (m.t === 'hm') {            // VR hand movement: the others see a body without legs
     const now = Date.now(); if (now - (p.hmT || 0) < 200) return; p.hmT = now;
     p.hm = m.on ? 1 : 0; broadcast(room, { t: 'hm', id: p.id, on: p.hm }, p.id);
@@ -390,7 +409,7 @@ wss.on('connection', ws => {
     const room = p.room;
     if (room && room.players.delete(p.id)) {
       if (room.ents) for (const [id, e] of room.ents) if (e.o === p.id) room.ents.delete(id);
-      broadcast(room, { t: 'leave', id: p.id }); broadcast(room, { t: 'edel', o: p.id }); dropIfUnused(room);
+      broadcast(room, { t: 'leave', id: p.id }); broadcast(room, { t: 'edel', o: p.id }); sleepCheck(room); voidCheck(room); dropIfUnused(room);
     }
   });
   ws.on('error', () => {});
@@ -399,7 +418,7 @@ wss.on('connection', ws => {
 // rooms that were created but never used disappear after 2 minutes
 setInterval(() => { for (const r of [...rooms.values()]) if (r.id !== 'main' && !r.players.size && !r.edits.size && Date.now() - (r.born || 0) > 120000) rooms.delete(r.id); }, 30000);
 setInterval(() => { for (const p of conns) { p.tokens = Math.min(40, p.tokens + 40); p.bkTokens = Math.min(20, p.bkTokens + 20); p.pickTokens = Math.min(20, p.pickTokens + 20); p.hitTokens = Math.min(4, p.hitTokens + 3); p.swTokens = Math.min(8, p.swTokens + 8); } }, 1000);
-setInterval(() => { for (const r of rooms.values()) if (r.players.size) broadcast(r, { t: 'time', c: roomTime(r) }); }, 20000);
+setInterval(() => { for (const r of rooms.values()) if (r.players.size) { broadcast(r, { t: 'time', c: roomTime(r) }); sleepCheck(r); voidCheck(r); } }, 20000);
 setInterval(() => { const now = Date.now(); for (const r of rooms.values()) for (const [id, d] of dropsOf(r)) if (now - d.t > DROP_LIFE) { dropsOf(r).delete(id); broadcast(r, { t: 'gone', did: id }); } }, 5000);
 // keep connections alive behind proxies and drop dead ones
 setInterval(() => {
