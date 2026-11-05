@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-05T09:40">
+<meta name="sbx-build" content="2026-11-05T15:00">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -33,6 +33,17 @@
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(94vw, 480px); max-height: 82vh; overflow-y: auto;
     background: rgba(20,24,34,0.96); color: #fff; border-radius: 14px; padding: 16px; z-index: 210; display: none; touch-action: pan-y;
   }
+  #chestui { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(96vw, 560px); max-height: 86vh; overflow-y: auto; background: rgba(20,24,34,0.96); color: #fff; border-radius: 14px; padding: 14px; z-index: 210; display: none; touch-action: pan-y; }
+  #chestui h3 { font-size: 15px; margin: 10px 0 6px; color: #cde; }
+  #chestui .chead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #chestui .chead b { font-size: 20px; }
+  #chestui button.cb { padding: 6px 12px; border: none; border-radius: 6px; background: #3b4152; color: #fff; font-size: 14px; cursor: pointer; }
+  #chestui button.cb.on { background: #3a5a9a; outline: 2px solid #fff; }
+  .cgrid { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
+  .ctile { position: relative; width: 56px; height: 56px; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.18); border-radius: 8px; cursor: pointer; padding: 0; }
+  .ctile:hover { border-color: #7f7; }
+  .ctile canvas { width: 32px; height: 32px; image-rendering: pixelated; position: absolute; left: 10px; top: 4px; }
+  .ctile span { position: absolute; bottom: 1px; right: 4px; font: bold 13px Arial; color: #fff; text-shadow: 0 0 2px #000; }
   #craft h2 { font-size: 20px; margin-bottom: 4px; text-align: center; }
   #craft .stn { font-size: 12px; color: #9ab; text-align: center; margin-bottom: 10px; }
   .crow { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; }
@@ -247,6 +258,7 @@
 <button id="vr-btn">🥽 VR</button>
 <div id="uw"></div>
 <div id="craft"></div>
+<div id="chestui"></div>
 <div id="updbar" style="display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:60;background:#2d6cdf;color:#fff;padding:10px 14px;border-radius:10px;font:bold 14px Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.5);text-align:center;max-width:92vw">🔄 A new version is available <button id="updgo" style="margin-left:8px;padding:6px 12px;border:0;border-radius:6px;background:#fff;color:#1a4fb0;font-weight:bold;cursor:pointer">Update now</button> <button id="updno" style="margin-left:4px;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#cde;cursor:pointer">✕</button></div>
 <div id="toast"></div>
 <div id="overlay"></div>
@@ -456,7 +468,7 @@ scene.add(ambientLight);
 // =====================================================
 // PROCEDURAL TEXTURE ATLAS (16x16 pixel tiles)
 // =====================================================
-const TILE = 16, NT = 78;
+const TILE = 16, NT = 80;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width = TILE * NT; atlasCanvas.height = TILE;
 const actx = atlasCanvas.getContext('2d');
@@ -640,6 +652,12 @@ for (let i = 0; i < 9; i++) { PX(77, 2 + i, 13 - i, 112, 80, 42); PX(77, 3 + i, 
 for (let y = 1; y <= 6; y++) for (let x = 8; x <= 13; x++) { const e = (x === 8 || x === 13) && (y === 1 || y === 6), v = 150 + ((x * 7 + y * 13) % 5) * 12 - (x > 11 ? 30 : 0) - (y > 4 ? 25 : 0); if (!e) PX(77, x, y, v, v, v + 8); }
 for (const [x, y] of [[7, 3], [14, 3], [10, 0], [11, 7], [7, 6], [14, 6]]) PX(77, x, y, 205, 205, 215);
 PX(77, 9, 2, 235, 235, 245); PX(77, 10, 2, 235, 235, 245);
+// 78 torch (stick + flame, used on the thin torch model), 79 torch icon
+for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const k = 0.9 + rnd() * 0.2; if (y < 2) PX(78, x, y, 255, 214, 90); else if (y < 4) PX(78, x, y, 255, 140, 30); else PX(78, x, y, 118 * k, 84 * k, 44 * k); }
+actx.clearRect(79 * TILE, 0, TILE, TILE);
+for (let y = 6; y <= 14; y++) { PX(79, 7, y, 124, 88, 46); PX(79, 8, y, 96, 66, 34); }
+for (let y = 2; y <= 5; y++) for (let x = 6; x <= 9; x++) PX(79, x, y, 255, y < 4 ? 214 : 130, y < 4 ? 90 : 24);
+PX(79, 7, 1, 255, 240, 160); PX(79, 8, 1, 255, 190, 70);
 const HANDLE = [112, 80, 42], TIER = [null, [166, 116, 58], [138, 138, 142], [220, 220, 228]];
 LN(33, 3, 13, 12, 4, 2, HANDLE);                                                                  // 33 stick
 BLOB(34, 7.5, 8.5, 4.6, 4.2, [38, 38, 42]); for (const [x, y] of [[5, 6], [9, 7], [7, 10]]) PX(34, x, y, 84, 86, 96);   // 34 coal
@@ -769,7 +787,8 @@ const ITEMDEF = [
   [139, 75, 'Raw fish', 'Roher Fisch'], [140, 76, 'Cooked fish', 'Gebratener Fisch'], [141, 77, 'Mace', 'Streitkolben'], [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
 ];
 const ITEMS = {};
-const BLOCK_NAMES = { 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'Stein'], 4: ['Sand', 'Sand'], 5: ['Wood', 'Holz'], 6: ['Snow', 'Schnee'], 7: ['Brick', 'Ziegel'], 8: ['Planks', 'Bretter'], 9: ['Leaves', 'Laub'],
+BLOCKS[43] = { faces: [78, 78, 78, 78, 78, 78], icon: 79 };            // 43 torch
+const BLOCK_NAMES = { 43: ['Torch', 'Fackel'], 1: ['Grass', 'Gras'], 2: ['Dirt', 'Erde'], 3: ['Stone', 'Stein'], 4: ['Sand', 'Sand'], 5: ['Wood', 'Holz'], 6: ['Snow', 'Schnee'], 7: ['Brick', 'Ziegel'], 8: ['Planks', 'Bretter'], 9: ['Leaves', 'Laub'],
   10: ['Door', 'Tür'], 14: ['Deepslate', 'Tiefenschiefer'], 18: ['Coal ore', 'Kohleerz'], 19: ['Iron ore', 'Eisenerz'], 20: ['Gold ore', 'Golderz'], 21: ['Crafting table', 'Werkbank'], 22: ['Furnace', 'Ofen'],
   23: ['Glass', 'Glas'], 24: ['Bed', 'Bett'], 26: ['Stone brick', 'Steinziegel'], 27: ['Gateway frame', 'Torrahmen'], 28: ['Gateway', 'Tor'], 29: ['Diamond ore', 'Diamanterz'], 30: ['Deepslate coal ore', 'Tiefenschiefer-Kohleerz'], 31: ['Deepslate iron ore', 'Tiefenschiefer-Eisenerz'], 32: ['Deepslate gold ore', 'Tiefenschiefer-Golderz'] };
 for (const id in BLOCK_NAMES) ITEMS[id] = { en: BLOCK_NAMES[id][0], de: BLOCK_NAMES[id][1] };
@@ -778,7 +797,7 @@ const iname = id => (ITEMS[id] && ITEMS[id][lang]) || ('#' + id);
 const FOOD = { 100: 5, 101: 4, 102: 3, 107: 3, 108: 8, 109: 3, 110: 8, 111: 2, 112: 6, 130: 3, 131: 7, 139: 2, 140: 6 };      // hunger points restored (the bar holds 20)
 const MAX_BLOCK = 63;
 // how hard each block is to break, and which tool is fast on it (min = lowest tool tier that makes it drop something)
-const BLOCK_INFO = { 1: { h: 0.6, t: 'shovel' }, 2: { h: 0.5, t: 'shovel' }, 3: { h: 3, t: 'pick', min: 1 }, 4: { h: 0.5, t: 'shovel' }, 5: { h: 2, t: 'axe' }, 6: { h: 0.3, t: 'shovel' },
+const BLOCK_INFO = { 43: { h: 0.1 }, 1: { h: 0.6, t: 'shovel' }, 2: { h: 0.5, t: 'shovel' }, 3: { h: 3, t: 'pick', min: 1 }, 4: { h: 0.5, t: 'shovel' }, 5: { h: 2, t: 'axe' }, 6: { h: 0.3, t: 'shovel' },
   7: { h: 3, t: 'pick', min: 1 }, 8: { h: 1.5, t: 'axe' }, 9: { h: 0.2 }, 10: { h: 1, t: 'axe' }, 11: { h: 1, t: 'axe' }, 12: { h: 1, t: 'axe' }, 13: { h: 1, t: 'axe' }, 14: { h: 5, t: 'pick', min: 2 },
   15: { h: 1.5, t: 'axe' }, 18: { h: 3.5, t: 'pick', min: 1 }, 19: { h: 4, t: 'pick', min: 2 }, 20: { h: 4.5, t: 'pick', min: 2 }, 21: { h: 1.5, t: 'axe' }, 22: { h: 3, t: 'pick', min: 1 },
   23: { h: 0.3 }, 24: { h: 0.5 }, 25: { h: 5, t: 'pick', min: 1 }, 26: { h: 3, t: 'pick', min: 1 }, 29: { h: 5, t: 'pick', min: 3 },
@@ -786,13 +805,13 @@ const BLOCK_INFO = { 1: { h: 0.6, t: 'shovel' }, 2: { h: 0.5, t: 'shovel' }, 3: 
 const TOOLS = { pick: [[115, 1], [116, 2], [117, 3], [135, 4]], axe: [[118, 1], [119, 2], [120, 3], [136, 4]], shovel: [[121, 1], [122, 2], [123, 3], [137, 4]], sword: [[124, 2], [125, 3], [126, 4], [138, 6]] };   // [item, tier or damage]
 const TIER_SPEED = [1, 2, 3.5, 6, 9];
 const isDoorId = id => id >= 10 && id <= 13;
-const isSolidId = id => id !== 0 && id !== 12 && id !== 13 && id !== 16 && id !== 17 && id !== 28 && !(id >= 33 && id <= 42);      // open doors and liquids can be walked through
+const isSolidId = id => id !== 0 && id !== 43 && id !== 12 && id !== 13 && id !== 16 && id !== 17 && id !== 28 && !(id >= 33 && id <= 42);      // open doors and liquids can be walked through
 const isLiquid = id => id === 16 || id === 17 || (id >= 33 && id <= 42);
 const wLvl = id => id === 16 ? 0 : (id >= 33 && id <= 39 ? id - 32 : -1);       // water: 0 = source, 1-7 = flowing (further from the source = higher)
 const lLvl = id => id === 17 ? 0 : (id >= 40 && id <= 42 ? id - 39 : -1);       // lava: 0 = source, 1-3 = flowing
 const isWaterId = id => id === 16 || (id >= 33 && id <= 39), isLavaId = id => id === 17 || (id >= 40 && id <= 42);
 // ---------- Inventory: everything you mine drops as a small block; picking it up fills the corner panel ----------
-const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141];
+const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 43, 15, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141];
 const inv = {}; for (const i of ITEM_IDS) inv[i] = 0;
 try {
   const sv = JSON.parse(localStorage.getItem('sbx_inv') || '{}');
@@ -821,7 +840,7 @@ function renderInv() {
     slot.addEventListener('click', () => { selectedType = id; renderInv(); });
     invEl.appendChild(slot);
   });
-  invEl.style.display = 'flex'; vrDirty = true; if (typeof craftOpen !== 'undefined' && craftOpen) renderCraft();
+  invEl.style.display = 'flex'; vrDirty = true; if (typeof craftOpen !== 'undefined' && craftOpen) { renderCraft(); if (chestKey) renderChest(); }
   clearTimeout(invSaveT);
   invSaveT = setTimeout(() => { try { localStorage.setItem('sbx_inv', JSON.stringify(Object.assign({ v: 2 }, inv))); } catch (e) {} }, 500);
 }
@@ -995,11 +1014,87 @@ function nb(ch, lx, ly, lz) {
   }
   return getBlock(ch.cx * 16 + lx, ly + Y_MIN, ch.cz * 16 + lz);
 }
-const seeThrough = n => n === 0 || n === 9 || n === 12 || n === 13 || n === 16 || (n >= 33 && n <= 39) || n === 23 || n === 28;   // air, leaves, open doors, water, glass: faces next to them stay visible
+const seeThrough = n => n === 0 || n === 43 || n === 9 || n === 12 || n === 13 || n === 16 || (n >= 33 && n <= 39) || n === 23 || n === 28;   // air, leaves, open doors, water, glass: faces next to them stay visible
+
+// ---------- Lighting: sky light (dark caves) + block light (torches, lava, gateways), 0-15 like the classic game. Per face, mixed in the shader ----------
+const LM = 12, LW = 16 + LM * 2;
+let LSKY = null, LBLK = null, lblkDirty = false, LB = 0, LS = 15, wox = 0, woz = 0;
+const HMW = new Int16Array(LW * LW), EMIT_ARR = new Uint8Array(64);
+EMIT_ARR[43] = 14; EMIT_ARR[17] = 13; EMIT_ARR[40] = EMIT_ARR[41] = EMIT_ARR[42] = 12; EMIT_ARR[28] = 9;
+const lightPass = id => id === 0 || seeThrough(id) || id === 17 || (id >= 40 && id <= 42);
+function calcHm(ch) {                                              // per column: height of the highest block that stops light
+  const hm = new Int16Array(256).fill(-1);
+  if (ch.cx * 16 >= VOID_X0) return hm;                             // the Void has no caves: always bright
+  for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) for (let ly = ch.top; ly >= 0; ly--) { const id = ch.data[(ly * 16 + z) * 16 + x]; if (id && !lightPass(id)) { hm[z * 16 + x] = ly; break; } }
+  return hm;
+}
+function calcEmit(ch) {
+  const out = [];
+  for (let ly = Math.max(0, ch.bottom); ly <= ch.top; ly++) for (let i = 0; i < 256; i++) { const id = ch.data[ly * 256 + i]; if (id && id < 64 && EMIT_ARR[id]) out.push([i & 15, ly, i >> 4, EMIT_ARR[id]]); }
+  return out;
+}
+function computeLight(ch) {
+  if (!LSKY) { LSKY = new Uint8Array(LW * LW * Y_H); LBLK = new Uint8Array(LW * LW * Y_H); }
+  wox = ch.cx * 16 - LM; woz = ch.cz * 16 - LM;
+  const nbc = []; for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) nbc.push(chunks.get(ckey(ch.cx + dx, ch.cz + dz)));
+  const chAt = (wx, wz) => nbc[((wz >> 4) - ch.cz + 1) * 3 + ((wx >> 4) - ch.cx + 1)];
+  for (let zz = 0; zz < LW; zz++) for (let xx = 0; xx < LW; xx++) { const c = chAt(wox + xx, woz + zz); HMW[zz * LW + xx] = c && c.hm ? c.hm[((woz + zz) & 15) * 16 + ((wox + xx) & 15)] : -1; }
+  LSKY.fill(0); if (lblkDirty) { LBLK.fill(0); lblkDirty = false; }
+  const blockAt = (xx, ly, zz) => { const c = chAt(wox + xx, woz + zz); return c ? c.data[(ly * 16 + ((woz + zz) & 15)) * 16 + ((wox + xx) & 15)] : 0; };
+  const DX = [1, -1, 0, 0, 0, 0], DZ = [0, 0, 1, -1, 0, 0], DY = [0, 0, 0, 0, 1, -1];
+  // sky light: starts where covered cells touch open sky sideways, then spreads (-1 per block)
+  let st = [];
+  for (let zz = 0; zz < LW; zz++) for (let xx = 0; xx < LW; xx++) {
+    const h = HMW[zz * LW + xx]; if (h < 1) continue;
+    for (let d = 0; d < 4; d++) {
+      const nx = xx + DX[d], nz = zz + DZ[d]; if (nx < 0 || nz < 0 || nx >= LW || nz >= LW) continue;
+      const h2 = HMW[nz * LW + nx]; if (h2 >= h) continue;
+      for (let ly = h2 + 1; ly < h; ly++) { const idx = (ly * LW + zz) * LW + xx; if (LSKY[idx] < 14 && lightPass(blockAt(xx, ly, zz))) { LSKY[idx] = 14; st.push(idx); } }
+    }
+  }
+  const spread = (arr, st, covered) => {
+    for (let q = 0; q < st.length; q++) {
+      const idx = st[q], v = arr[idx]; if (v <= 1) continue;
+      const xx = idx % LW, zz = ((idx / LW) | 0) % LW, ly = (idx / (LW * LW)) | 0;
+      for (let d = 0; d < 6; d++) {
+        const nx = xx + DX[d], nz = zz + DZ[d], ny = ly + DY[d]; if (nx < 0 || nz < 0 || nx >= LW || nz >= LW || ny < 0 || ny >= Y_H) continue;
+        if (covered && ny > HMW[nz * LW + nx]) continue;               // open sky is already full bright
+        const ni = (ny * LW + nz) * LW + nx; if (arr[ni] >= v - 1 || !lightPass(blockAt(nx, ny, nz))) continue;
+        arr[ni] = v - 1; st.push(ni);
+      }
+    }
+  };
+  spread(LSKY, st, true);
+  // block light from every torch / lava / gateway close enough
+  st = [];
+  for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+    const c = chunks.get(ckey(ch.cx + dx, ch.cz + dz)); if (!c || !c.emit) continue;
+    for (const e of c.emit) { const xx = c.cx * 16 + e[0] - wox, zz = c.cz * 16 + e[2] - woz; if (xx < 0 || zz < 0 || xx >= LW || zz >= LW) continue; const idx = (e[1] * LW + zz) * LW + xx; if (LBLK[idx] < e[3]) { LBLK[idx] = e[3]; st.push(idx); lblkDirty = true; } }
+  }
+  if (st.length) spread(LBLK, st, false);
+}
+function lightGet(wx, ly, wz) {                                    // light of the cell at (wx, ly, wz): LB = block light, LS = sky light
+  const xx = wx - wox, zz = wz - woz;
+  if (xx < 0 || zz < 0 || xx >= LW || zz >= LW || ly < 0 || ly >= Y_H) { LB = 0; LS = 15; return; }
+  const idx = (ly * LW + zz) * LW + xx; LB = LBLK[idx]; LS = ly > HMW[zz * LW + xx] ? 15 : LSKY[idx];
+}
+const lightUni = { value: 0.05 };                                  // the darkest it can get (a cave with no light)
+function lightPatch(mat) {
+  mat.onBeforeCompile = function (sh) {
+    THREE.Material.prototype.onBeforeCompile.call(this, sh);                // (the VR grading patch)
+    sh.uniforms.uMinL = lightUni;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aLight;\nvarying vec2 vLight;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLight = aLight;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vLight;\nuniform float uMinL;').replace('#include <map_fragment>', `#include <map_fragment>
+      { float bl = vLight.x / 15.0, sk = vLight.y / 15.0, L = max(bl, sk); L = max(pow(L, 1.5), uMinL);
+        diffuseColor.rgb *= L; diffuseColor.rgb *= mix(vec3(1.0), vec3(1.28, 1.0, 0.68), clamp(bl - sk, 0.0, 1.0)); }`);
+  };
+}
+lightPatch(chunkMat); lightPatch(waterMat);
 function buildChunkMesh(ch) {
-  const P = [], N = [], U = [], I = [], WP = [], WN = [], WU = [], WI = [];
+  const P = [], N = [], U = [], I = [], WP = [], WN = [], WU = [], WI = [], LT = [], WLT = [];
   let vi = 0, wvi = 0;
   const data = ch.data, ox = ch.cx * 16, oz = ch.cz * 16;
+  computeLight(ch);
   const inset = 0.02, span = 1 - inset * 2;
   for (let ly = ch.bottom; ly <= ch.top; ly++) {
     const wy = ly + Y_MIN;
@@ -1007,8 +1102,25 @@ function buildChunkMesh(ch) {
       const id = data[(ly * 16 + lz) * 16 + lx];
       if (!id) continue;
       const faces = BLOCKS[id].faces;
+      if (id === 43) {                                  // torch: a thin stick, bright
+        lightGet(ox + lx, ly, oz + lz);
+        const lo = [-0.0625, -0.5, -0.0625], hi = [0.0625, 0.125, 0.0625];
+        for (let f = 0; f < 6; f++) {
+          const F = FACES[f];
+          for (let c = 0; c < 4; c++) {
+            const cp = F.c[c];
+            P.push(ox + lx + lo[0] + cp[0] * (hi[0] - lo[0]), wy + lo[1] + cp[1] * (hi[1] - lo[1]), oz + lz + lo[2] + cp[2] * (hi[2] - lo[2]));
+            N.push(F.dir[0], F.dir[1], F.dir[2]);
+            if (f === 3) U.push((78 + 0.5) / NT, 0.9); else if (f === 2) U.push((78 + 0.5) / NT, 0.3); else U.push((78 + 0.35 + cp[3] * 0.3) / NT, 0.02 + cp[4] * 0.96);
+            LT.push(14, LS);
+          }
+          I.push(vi, vi + 1, vi + 2, vi + 2, vi + 1, vi + 3); vi += 4;
+        }
+        continue;
+      }
       if (id === 12 || id === 13) {                     // open door: a thin panel swung against the doorway side
         const alongX = nb(ch, lx - 1, ly, lz) !== 0 || nb(ch, lx + 1, ly, lz) !== 0;   // the wall runs along x
+        lightGet(ox + lx, ly, oz + lz);
         const lo = [-0.5, -0.5, -0.5], hi = alongX ? [-0.35, 0.5, 0.5] : [0.5, 0.5, -0.35];
         for (let f = 0; f < 6; f++) {
           const F = FACES[f], tile = faces[f];
@@ -1017,6 +1129,7 @@ function buildChunkMesh(ch) {
             P.push(ox + lx + lo[0] + cp[0] * (hi[0] - lo[0]), wy + lo[1] + cp[1] * (hi[1] - lo[1]), oz + lz + lo[2] + cp[2] * (hi[2] - lo[2]));
             N.push(F.dir[0], F.dir[1], F.dir[2]);
             U.push((tile + inset + cp[3] * span) / NT, inset + cp[4] * span);
+            LT.push(LB, LS);
           }
           I.push(vi, vi + 1, vi + 2, vi + 2, vi + 1, vi + 3); vi += 4;
         }
@@ -1029,12 +1142,14 @@ function buildChunkMesh(ch) {
         const n = nb(ch, lx + F.dir[0], ly + F.dir[1], lz + F.dir[2]);
         if (!seeThrough(n) || n === id) continue;
         if (wet && n !== 0 && n !== 9 && n !== 12 && n !== 13 && n !== 23) continue;
-        const tile = faces[f], PP = wet ? WP : P, NN = wet ? WN : N, UU = wet ? WU : U, II = wet ? WI : I, base = wet ? wvi : vi;
+        lightGet(ox + lx + F.dir[0], ly + F.dir[1], oz + lz + F.dir[2]);
+        const tile = faces[f], PP = wet ? WP : P, NN = wet ? WN : N, UU = wet ? WU : U, II = wet ? WI : I, LL = wet ? WLT : LT, base = wet ? wvi : vi;
         for (let c = 0; c < 4; c++) {
           const cp = F.c[c];
           PP.push(ox + lx - 0.5 + cp[0], wy - 0.5 + cp[1] - (cp[1] === 1 ? wdrop : 0), oz + lz - 0.5 + cp[2]);
           NN.push(F.dir[0], F.dir[1], F.dir[2]);
           UU.push((tile + inset + cp[3] * span) / NT, inset + cp[4] * span);
+          LL.push(LB, LS);
         }
         II.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
         if (wet) wvi += 4; else vi += 4;
@@ -1047,6 +1162,7 @@ function buildChunkMesh(ch) {
     wg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(WP), 3));
     wg.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(WN), 3));
     wg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(WU), 2));
+    wg.setAttribute('aLight', new THREE.BufferAttribute(new Float32Array(WLT), 2));
     wg.setIndex(new THREE.BufferAttribute(wvi > 65000 ? new Uint32Array(WI) : new Uint16Array(WI), 1));
     wg.computeBoundingSphere();
     ch.wmesh = new THREE.Mesh(wg, waterMat); ch.wmesh.renderOrder = 2; scene.add(ch.wmesh);
@@ -1057,6 +1173,7 @@ function buildChunkMesh(ch) {
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
   g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3));
   g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(U), 2));
+  g.setAttribute('aLight', new THREE.BufferAttribute(new Float32Array(LT), 2));
   g.setIndex(new THREE.BufferAttribute(vi > 65000 ? new Uint32Array(I) : new Uint16Array(I), 1));
   g.computeBoundingSphere();
   const mesh = new THREE.Mesh(g, chunkMat);
@@ -1184,6 +1301,7 @@ function resetVoidLocal() {                                      // the Void sta
   for (const k of [...chunkEdits.keys()]) if (Math.floor(k / 65536) - 32768 >= (VOID_X0 >> 4)) chunkEdits.delete(k);
   for (const ch of [...chunks.values()]) if (ch.cx >= (VOID_X0 >> 4)) unloadChunk(ch);
   for (const k of [...openedChests]) if (+String(k).split(',')[0] >= VOID_X0) openedChests.delete(k);
+  for (const k of Object.keys(localChests)) if (+k.split(',')[0] >= VOID_X0) delete localChests[k];
   for (let i = drops.length - 1; i >= 0; i--) if (drops[i].x >= VOID_X0) removeDrop(i);
 }
 let wasInVoid = false;
@@ -1200,7 +1318,8 @@ function finishChunk(cx, cz, key, data) {
     const base = ly * 256;
     for (let i = 0; i < 256; i++) if (data[base + i]) { if (ly > top) top = ly; if (ly < bottom) bottom = ly; break; }
   }
-  const ch = { cx, cz, data, mesh: null, top, bottom };
+  const ch = { cx, cz, data, mesh: null, top, bottom, hm: null, emit: null };
+  ch.hm = calcHm(ch); ch.emit = calcEmit(ch);
   chunks.set(key, ch);
   buildChunkMesh(ch);
 }
@@ -1247,7 +1366,8 @@ function generateChunk(cx, cz) {
     const base = ly * 256;
     for (let i = 0; i < 256; i++) if (data[base + i]) { if (ly > top) top = ly; if (ly < bottom) bottom = ly; break; }
   }
-  const ch = { cx, cz, data, mesh: null, top, bottom };
+  const ch = { cx, cz, data, mesh: null, top, bottom, hm: null, emit: null };
+  ch.hm = calcHm(ch); ch.emit = calcEmit(ch);
   chunks.set(key, ch);
   buildChunkMesh(ch);
 }
@@ -1262,17 +1382,28 @@ function setBlock(x, y, z, id) {
   const ly = y - Y_MIN;
   if (!ch || ly < 0 || ly >= Y_H) return false;
   const lx = x & 15, lz = z & 15, idx = (ly * 16 + lz) * 16 + lx;
+  const oldId = ch.data[idx];
   ch.data[idx] = id;
+  let lightChanged = false;
+  if ((oldId < 64 && EMIT_ARR[oldId]) || (id < 64 && EMIT_ARR[id])) { ch.emit = (ch.emit || []).filter(e => !(e[0] === lx && e[1] === ly && e[2] === lz)); if (id < 64 && EMIT_ARR[id]) ch.emit.push([lx, ly, lz, EMIT_ARR[id]]); lightChanged = true; }
+  if (ch.hm && cx * 16 < VOID_X0) {
+    const hi = lz * 16 + lx;
+    if (!lightPass(id)) { if (ly > ch.hm[hi]) { ch.hm[hi] = ly; lightChanged = true; } }
+    else if (ch.hm[hi] === ly) { let h = -1; for (let y = ly - 1; y >= 0; y--) { const b = ch.data[(y * 16 + lz) * 16 + lx]; if (b && !lightPass(b)) { h = y; break; } } ch.hm[hi] = h; lightChanged = true; }
+  }
   let ed = chunkEdits.get(key);
   if (!ed) { ed = new Map(); chunkEdits.set(key, ed); }
   ed.set(idx, id);
   if (id) { if (ly > ch.top) ch.top = ly; if (ly < ch.bottom) ch.bottom = ly; }
   buildChunkMesh(ch);
   const rb = (a, b) => { const n = chunks.get(ckey(a, b)); if (n) buildChunkMesh(n); };
-  if (lx === 0) rb(cx - 1, cz);
-  if (lx === 15) rb(cx + 1, cz);
-  if (lz === 0) rb(cx, cz - 1);
-  if (lz === 15) rb(cx, cz + 1);
+  if (lightChanged) { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (dx || dz) rb(cx + dx, cz + dz); }      // light reaches up to 12 blocks into the next chunks
+  else {
+    if (lx === 0) rb(cx - 1, cz);
+    if (lx === 15) rb(cx + 1, cz);
+    if (lz === 0) rb(cx, cz - 1);
+    if (lz === 15) rb(cx, cz + 1);
+  }
   return true;
 }
 
@@ -1633,7 +1764,7 @@ let xp = 0;
 try { const v = parseInt(localStorage.getItem('sbx_xp')); if (Number.isFinite(v) && v > 0) xp = v; } catch (e) {}
 const xpNeed = lv => 8 + lv * 4;                                   // XP needed to go from level lv to lv + 1
 function xpLevel() { let lv = 0, left = xp; while (left >= xpNeed(lv)) { left -= xpNeed(lv); lv++; } return { lv, left, need: xpNeed(lv) }; }
-function xpUI() { const q = xpLevel(); el('xpfill').style.width = Math.round(q.left / q.need * 100) + '%'; el('xplv').textContent = 'Lv ' + q.lv + ' · ' + q.left + '/' + q.need + ' XP'; }
+function xpUI() { vrDirty = true; const q = xpLevel(); el('xpfill').style.width = Math.round(q.left / q.need * 100) + '%'; el('xplv').textContent = 'Lv ' + q.lv + ' · ' + q.left + '/' + q.need + ' XP'; }
 function addXp(n) {
   if (!(n > 0)) return;
   const before = xpLevel().lv; xp += Math.floor(n); try { localStorage.setItem('sbx_xp', String(xp)); } catch (e) {}
@@ -2123,7 +2254,7 @@ function breakTimeOf(bid) { const bi = BLOCK_INFO[bid] || { h: 0.6 }, tl = bi.t 
 function canHarvest(bid) { const bi = BLOCK_INFO[bid]; if (!bi || !bi.min) return true; const tl = bi.t ? toolFor(bi.t) : null; return (tl ? tl[1] : 0) >= bi.min; }
 function dropFor(bid) {                                           // [item, count] or null (wrong tool = nothing drops)
   if (!canHarvest(bid) || bid === 25) return null;
-  if (bid === 15) return [8, 1];                                  // a chest drops planks
+  if (bid === 15) return [15, 1];                                 // a chest drops itself (what is inside drops too)
   if (bid === 18 || bid === 30) return [104, 1 + (Math.random() < 0.5 ? 1 : 0)];  // coal ore drops coal
   if (bid === 29) return [134, 1];                                // diamond ore drops a diamond
   if (isDoorId(bid)) return [10, 1];
@@ -2131,7 +2262,9 @@ function dropFor(bid) {                                           // [item, coun
 }
 function breakBlockAt(t) {
   const bid = getBlock(t.x, t.y, t.z); if (!bid) return;
+  if (bid !== 43 && getBlock(t.x, t.y + 1, t.z) === 43) breakBlockAt({ x: t.x, y: t.y + 1, z: t.z });      // a torch falls off when the block under it goes
   const drop = dropFor(bid), online = netState === 'on', d = isDoorId(bid) ? doorParts(t.x, t.y, t.z) : null;
+  if (bid === 15) chestBroken(t.x, t.y, t.z);
   if (drop && XP_ORE[bid]) addXp(XP_ORE[bid]);
   if (d) {
     doorSet(t.x, d[0], t.z, 0, online && drop ? drop[0] : 0); doorSet(t.x, d[1], t.z, 0);        // breaking a door removes both halves
@@ -2470,7 +2603,9 @@ const RECIPES = [
   recipe(105, 1, { 19: 1 }, 'furnace', true), recipe(106, 1, { 20: 1 }, 'furnace', true), recipe(23, 1, { 4: 1 }, 'furnace', true), recipe(7, 1, { 2: 2 }, 'furnace', true),
   recipe(108, 1, { 107: 1 }, 'furnace', true), recipe(110, 1, { 109: 1 }, 'furnace', true), recipe(112, 1, { 111: 1 }, 'furnace', true), recipe(131, 1, { 130: 1 }, 'furnace', true), recipe(140, 1, { 139: 1 }, 'furnace', true), recipe(133, 1, { 132: 50 }),
   recipe(105, 1, { 31: 1 }, 'furnace', true), recipe(106, 1, { 32: 1 }, 'furnace', true),
-  recipe(135, 1, { 134: 3, 103: 2 }, 'table'), recipe(136, 1, { 134: 3, 103: 2 }, 'table'), recipe(137, 1, { 134: 1, 103: 2 }, 'table'), recipe(138, 1, { 134: 2, 103: 1 }, 'table')
+  recipe(135, 1, { 134: 3, 103: 2 }, 'table'), recipe(136, 1, { 134: 3, 103: 2 }, 'table'), recipe(137, 1, { 134: 1, 103: 2 }, 'table'), recipe(138, 1, { 134: 2, 103: 1 }, 'table'),
+  recipe(15, 1, { 8: 9 }, 'table'),                                                        // chest: 9 planks at a crafting table
+  recipe(43, 4, { 104: 1, 103: 1 })                                                       // 4 torches: coal + stick
 ];
 function stationNear(kind) {
   const id = kind === 'table' ? 21 : 22, px = Math.round(player.pos.x), py = Math.round(player.pos.y + 0.5), pz = Math.round(player.pos.z);
@@ -2515,7 +2650,7 @@ function openCraft() {
   if (locked) document.exitPointerLock();
   renderCraft();
 }
-function closeCraft() { craftOpen = false; el('craft').style.display = 'none'; if (!settingsOpen) el('overlay').style.display = 'none'; }
+function closeCraft() { craftOpen = false; chestKey = ''; el('chestui').style.display = 'none'; el('craft').style.display = 'none'; if (!settingsOpen) el('overlay').style.display = 'none'; }
 el('craft-btn').addEventListener('click', () => craftOpen ? closeCraft() : openCraft());
 el('drop-btn').addEventListener('click', () => tossSelected(false));
 el('trash-btn').addEventListener('click', () => { if (selectedType) trashId(selectedType, true); });
@@ -2533,17 +2668,86 @@ function chestLoot(x, y, z) {                                   // same chest = 
   if (r(6) < 0.5) loot.push([8, n(7, 2, 6)]);
   if (r(8) < 0.3) loot.push([7, n(9, 2, 5)]);
   if (r(10) < 0.15) loot.push([14, n(11, 2, 5)]);
+  if (r(12) < 0.45) loot.push([43, n(13, 2, 6)]);
   if (x >= VOID_X0 && ((x === VOID_CX + 10 && z === 8) || r(20) < 0.5)) loot.push([141, 1]);          // the Void hides maces: one chest on the big platform always has one
   return loot;
 }
+// ---------- chests: a real storage menu. What is inside is shared by everybody online (the server keeps it), saved with the world ----------
+let chestKey = '', chestPos = null, chestC = null, chestStep = 'all';        // chestC: contents (item id -> count), null while loading
+const localChests = {};
+try { Object.assign(localChests, JSON.parse(localStorage.getItem('sbx_chestdata') || '{}')); } catch (e) {}
+const saveLocalChests = () => { try { localStorage.setItem('sbx_chestdata', JSON.stringify(localChests)); } catch (e) {} };
+const chestKeyOf = (x, y, z) => x + ',' + y + ',' + z;
+function chestStart(x, y, z) {                                    // what a never-opened chest of the world holds
+  const o = {}; if (!openedChests.has(chestKeyOf(x, y, z))) for (const [id, c] of chestLoot(x, y, z)) o[id] = (o[id] || 0) + c; return o;
+}
+const stepN = have => chestStep === 'all' ? have : Math.min(have, +chestStep);
 function openChest(x, y, z) {
-  const key = x + ',' + y + ',' + z;
-  if (openedChests.has(key)) { toast(t('chest_empty')); return; }
-  const loot = chestLoot(x, y, z);
-  openedChests.add(key);
-  try { localStorage.setItem('sbx_chests', JSON.stringify([...openedChests].filter(k => +String(k).split(',')[0] < VOID_X0).slice(-3000))); } catch (e) {}
-  for (const [id, c] of loot) addItem(id, c);
-  toast('📦 ' + t('chest_got') + ': ' + loot.map(([id, c]) => c + '× ' + iname(id)).join(', '));
+  if (lobbyOpen || settingsOpen || !player.alive) return;
+  const key = chestKeyOf(x, y, z); chestKey = key; chestPos = { x, y, z }; chestC = null;
+  if (netState === 'on') netSend({ t: 'copen', k: key });
+  else { if (!localChests[key]) { localChests[key] = chestStart(x, y, z); saveLocalChests(); } chestC = localChests[key]; }
+  if (xrActive) { vrMenuOpen('chest'); return; }
+  craftOpen = true; el('chestui').style.display = 'block'; el('overlay').style.display = 'block';
+  if (locked) document.exitPointerLock();
+  renderChest();
+}
+function chestRefresh() { if (chestKey && !xrActive) renderChest(); VRM.dirty = true; }
+function onChestData(m) {                                         // the server tells what is inside
+  if (m.gone) { if (m.k === chestKey) { closeCraft(); if (VRM.open && VRM.tab === 'chest') vrMenuClose(); toast('The chest was broken'); } return; }
+  if (m.k !== chestKey) return;
+  if (m.c === null || m.c === undefined) { const c = chestStart(chestPos.x, chestPos.y, chestPos.z); chestC = c; netSend({ t: 'cinit', k: chestKey, c }); }
+  else chestC = m.c;
+  chestRefresh();
+}
+function chestTake(id) {
+  if (!chestC || !(chestC[id] > 0)) return;
+  const n = stepN(chestC[id]);
+  if (netState === 'on') { netSend({ t: 'cmove', k: chestKey, i: id, n, d: 't' }); return; }
+  chestC[id] -= n; if (chestC[id] < 1) delete chestC[id]; saveLocalChests(); addItem(id, n); chestRefresh();
+}
+function chestPut(id) {
+  if (!chestC || !(inv[id] > 0)) return;
+  const n = stepN(inv[id]);
+  if (netState === 'on') { inv[id] -= n; netSend({ t: 'cmove', k: chestKey, i: id, n, d: 'p' }); renderInv(); return; }
+  if (chestC[id] === undefined && Object.keys(chestC).length >= 27) { toast('The chest is full'); return; }
+  inv[id] -= n; chestC[id] = Math.min(9999, (chestC[id] || 0) + n); saveLocalChests(); renderInv(); chestRefresh();
+}
+function chestPlaced(x, y, z) {                                   // a chest I just placed starts empty
+  const key = chestKeyOf(x, y, z);
+  if (netState === 'on') netSend({ t: 'cinit', k: key, c: {}, nw: 1 }); else { localChests[key] = {}; saveLocalChests(); }
+}
+function chestBroken(x, y, z) {                                   // everything inside drops
+  const key = chestKeyOf(x, y, z);
+  if (key === chestKey) { closeCraft(); if (VRM.open && VRM.tab === 'chest') vrMenuClose(); }
+  if (netState === 'on') { netSend({ t: 'cbreak', k: key, c: chestStart(x, y, z) }); return; }
+  const c = localChests[key] || chestStart(x, y, z);
+  for (const id in c) spawnDrop(x, y, z, +id, 0, c[id]);
+  delete localChests[key]; openedChests.add(key); saveLocalChests();
+}
+function renderChest() {
+  const box = el('chestui'); box.innerHTML = '';
+  const tile = (id, cnt, fn) => {
+    const b = document.createElement('button'); b.className = 'ctile'; b.title = iname(id);
+    const cv = document.createElement('canvas'); cv.width = cv.height = 32; const c2 = cv.getContext('2d'); c2.imageSmoothingEnabled = false;
+    c2.drawImage(atlasCanvas, BLOCKS[id].icon * TILE, 0, TILE, TILE, 0, 0, 32, 32);
+    const sp = document.createElement('span'); sp.textContent = cnt; b.appendChild(cv); b.appendChild(sp); b.addEventListener('click', fn); return b;
+  };
+  const head = document.createElement('div'); head.className = 'chead';
+  const tt = document.createElement('b'); tt.textContent = '📦 ' + iname(15); head.appendChild(tt);
+  const bar = document.createElement('div');
+  for (const [v, label] of [['1', '1'], ['10', '10'], ['all', 'All']]) { const b = document.createElement('button'); b.className = 'cb' + (chestStep === v ? ' on' : ''); b.textContent = label; b.style.marginRight = '4px'; b.addEventListener('click', () => { chestStep = v; renderChest(); }); bar.appendChild(b); }
+  const x = document.createElement('button'); x.className = 'cb'; x.textContent = '✖'; x.addEventListener('click', closeCraft); bar.appendChild(x);
+  head.appendChild(bar); box.appendChild(head);
+  const h1 = document.createElement('h3'); h1.textContent = 'In the chest (tap to take)'; box.appendChild(h1);
+  const g1 = document.createElement('div'); g1.className = 'cgrid';
+  if (chestC === null) g1.textContent = 'Loading…'; else if (!Object.keys(chestC).length) g1.textContent = '(empty)';
+  else for (const id of Object.keys(chestC)) g1.appendChild(tile(+id, chestC[id], () => chestTake(+id)));
+  box.appendChild(g1);
+  const h2 = document.createElement('h3'); h2.textContent = 'Your items (tap to put in)'; box.appendChild(h2);
+  const g2 = document.createElement('div'); g2.className = 'cgrid'; const all = invList();
+  if (!all.length) g2.textContent = '(nothing)'; else for (const id of all) g2.appendChild(tile(id, inv[id], () => chestPut(id)));
+  box.appendChild(g2);
 }
 function eatSelected() {
   const heal = FOOD[selectedType];
@@ -2636,11 +2840,13 @@ function doPlace() {
     inv[10]--; renderInv();
     return;
   }
-  const overlap = Math.abs(px - player.pos.x) < 0.5 + player.hw && Math.abs(pz - player.pos.z) < 0.5 + player.hw &&
+  if (selectedType === 43 && !(px === target.x && pz === target.z && py === target.y + 1)) { toast('🔦 Torches go on top of a block'); return; }
+  const overlap = selectedType !== 43 && Math.abs(px - player.pos.x) < 0.5 + player.hw && Math.abs(pz - player.pos.z) < 0.5 + player.hw &&
                   py + 0.5 > player.pos.y && py - 0.5 < player.pos.y + player.h;
   if (overlap) return;
   setBlock(px, py, pz, selectedType);
   netBlock(px, py, pz, selectedType);
+  if (selectedType === 15) chestPlaced(px, py, pz);
   inv[selectedType]--; renderInv();
   checkBannedShape(px, py, pz);
 }
@@ -3240,6 +3446,8 @@ function netHandle(m) {
     case 'gone': { const i = drops.findIndex(d => d.did === m.did); if (i >= 0) removeDrop(i); break; }
     case 'got': { const i = drops.findIndex(d => d.did === m.did); if (i >= 0) removeDrop(i); addItem(+m.i, Math.max(1, Math.min(9999, Math.floor(+m.c) || 1))); break; }
     case 'voidreset': resetVoidLocal(); break;
+    case 'cdata': onChestData(m); break;
+    case 'cgive': if (Number.isInteger(m.i) && Number.isInteger(m.n) && m.n > 0 && m.n < 10000) { addItem(m.i, m.n); chestRefresh(); } break;
     case 'reset': for (let i = drops.length - 1; i >= 0; i--) if (drops[i].did) removeDrop(i); knownReset = srvReset = m.r || Date.now() + clockOff; bk.clear(); serverSeen.clear(); chunkEdits.clear(); reloadWorld(); bkTouch(); break;
     case 'admin': isAdmin = !!m.ok; admStatus(m.ok ? 'adm_ok' : 'adm_bad'); if (m.ok && mySkin === 'blue') sendSkin(); break;
     case 'pos': { const r = remotes.get(m.id); if (r) { r.tx = m.x; r.ty = m.y; r.tz = m.z; r.yaw = m.yaw; r.pitch = Number.isFinite(m.pitch) ? m.pitch : 0; r.hT = Array.isArray(m.h) && m.h.length === 6 && m.h.every(Number.isFinite) ? m.h : null; if (!r.hT) r.hC = null; } break; }
@@ -3765,7 +3973,12 @@ function netUpdate(dt) {
       if (r.swing > 0) { r.swing -= dt; P.armR.rotation.x = -Math.sin((1 - Math.max(0, r.swing) / 0.3) * Math.PI) * 1.9; }
       else P.armR.rotation.x = s * 0.9;
     }
-    P.head.rotation.x = -r.pitch;
+    const vs = voice.spk.get(r.id), talking = !!(vs && performance.now() - vs.last < 450);      // talking on voice chat: the head bobs along with the voice
+    if (r.hy0 === undefined) r.hy0 = P.head.position.y;
+    r.talk = (r.talk || 0) + ((talking ? 1 : 0) - (r.talk || 0)) * Math.min(1, dt * 12);
+    const tt = performance.now() / 1000;
+    P.head.rotation.x = -r.pitch + Math.sin(tt * 15) * 0.13 * r.talk;
+    P.head.position.y = r.hy0 + Math.abs(Math.sin(tt * 9.5)) * 0.05 * r.talk;
     if (r.flash > 0) { r.flash -= dt; r.mat.emissive.setHex(r.flash > 0 ? 0xcc0000 : 0x000000); }   // red when hit
   }
   if (netState !== 'on') return;
@@ -3873,6 +4086,8 @@ function drawVrPanel() {
   c.font = '19px sans-serif';                                                       // hunger, right under the hearts
   for (let i = 0; i < 10; i++) { const v = hunger - i * 2; c.globalAlpha = v >= 2 ? 1 : v >= 1 ? 0.6 : 0.2; c.fillText('🍗', 6 + i * 24, 60); }
   c.globalAlpha = 1;
+  { const q = xpLevel(); c.fillStyle = 'rgba(255,255,255,0.22)'; c.fillRect(6, 72, 196, 8); c.fillStyle = '#7CFC3A'; c.fillRect(6, 72, Math.round(196 * q.left / q.need), 8);   // XP bar under the hunger bar
+    c.fillStyle = '#7CFC3A'; c.font = 'bold 14px Arial'; c.textBaseline = 'middle'; c.fillText('Lv ' + q.lv, 208, 77); c.font = '30px sans-serif'; }
   const all = invList(), COLS = 5, ROWS = 5, si = all.indexOf(selectedType);
   const row0 = Math.max(0, Math.min(Math.floor(si / COLS) - ROWS + 1 < 0 ? 0 : Math.floor(si / COLS) - ROWS + 1, Math.max(0, Math.ceil(all.length / COLS) - ROWS)));
   const list = all.slice(row0 * COLS, (row0 + ROWS) * COLS);
@@ -3902,15 +4117,17 @@ function vrMenuOpen(tab) {
   if (!xrActive || !player.alive) return;
   vrMenuInit();
   if (tab) VRM.tab = tab;
-  VRM.page = 0; VRM.open = true; VRM.hover = -1; VRM.dirty = true;
+  VRM.page = 0; VRM.cpage = 0; VRM.ipage = 0; VRM.open = true; VRM.hover = -1; VRM.dirty = true;
   vr.hold[0] = vr.hold[1] = false; mine.key = ''; mine.p = 0; crack.visible = false; highlight.visible = false;
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-  VRM.mesh.position.set(eyePos.x + fx * 1.1, eyePos.y - 0.1, eyePos.z + fz * 1.1);
+  if (VRM.tab === 'chest' && chestPos) VRM.mesh.position.set(chestPos.x, chestPos.y + 1.75, chestPos.z);          // the chest menu floats above the chest
+  else VRM.mesh.position.set(eyePos.x + fx * 1.1, eyePos.y - 0.1, eyePos.z + fz * 1.1);
   VRM.mesh.lookAt(eyePos.x, VRM.mesh.position.y, eyePos.z);
   VRM.mesh.visible = true; VRM.mesh.updateMatrixWorld(true); VRM.pos.copy(VRM.mesh.position);
   drawVrMenu();
 }
 function vrMenuClose() {
+  if (VRM.tab === 'chest') { VRM.tab = 'craft'; chestKey = ''; }
   VRM.open = false; if (VRM.mesh) VRM.mesh.visible = false;
   for (const c of vr.ctrls) c.userData.line.material.color.setHex(0xffffff);
 }
@@ -3951,6 +4168,30 @@ function drawVrMenu() {
     c.strokeStyle = on ? '#fff' : '#667'; c.lineWidth = 2; c.strokeRect(x, y, w, h);
     c.fillStyle = en ? '#fff' : '#777'; c.font = 'bold 22px Arial'; c.textAlign = 'center'; c.fillText(label, x + w / 2, y + h / 2 + 1, w - 8); c.textAlign = 'left';
   };
+  if (VRM.tab === 'chest') {
+    c.fillStyle = '#fff'; c.font = 'bold 26px Arial'; c.fillText('📦 ' + iname(15), 18, 30);
+    for (const [v, label, x] of [['1', '1', 200], ['10', '10', 270], ['all', 'All', 350]]) btn(x, 8, 66, 44, label, () => { chestStep = v; }, true, chestStep === v);
+    btn(500, 8, 130, 44, '✖ ' + t('craft_close'), vrMenuClose, true, false);
+    const PERC = 6, side = (x0, title, ids, cnt, page, setPage, fn) => {
+      const pages = Math.max(1, Math.ceil(ids.length / PERC)), pg = Math.min(page, pages - 1);
+      c.fillStyle = '#9ab'; c.font = '17px Arial'; c.fillText(title, x0 + 4, 70);
+      ids.slice(pg * PERC, pg * PERC + PERC).forEach((id, j) => {
+        const y = 84 + j * 54;
+        c.fillStyle = 'rgba(255,255,255,0.07)'; c.fillRect(x0, y, 305, 50);
+        c.drawImage(atlasCanvas, BLOCKS[id].icon * TILE, 0, TILE, TILE, x0 + 6, y + 7, 36, 36);
+        btn(x0, y, 305, 50, '', () => fn(id), true, false);
+        c.fillStyle = '#fff'; c.font = 'bold 20px Arial'; c.textAlign = 'left'; c.fillText(cnt(id) + '× ' + iname(id), x0 + 52, y + 26, 245);
+      });
+      if (!ids.length) { c.fillStyle = '#cde'; c.font = '19px Arial'; c.fillText(chestC === null && title[0] === 'C' ? 'Loading…' : '(empty)', x0 + 14, 110); }
+      btn(x0, 416, 90, 40, '◀', () => setPage(Math.max(0, pg - 1)), pg > 0, false);
+      c.fillStyle = '#cde'; c.font = '17px Arial'; c.textAlign = 'center'; c.fillText((pg + 1) + ' / ' + pages, x0 + 152, 436); c.textAlign = 'left';
+      btn(x0 + 215, 416, 90, 40, '▶', () => setPage(Math.min(pages - 1, pg + 1)), pg < pages - 1, false);
+    };
+    side(10, 'Chest (point + trigger = take)', chestC ? Object.keys(chestC).map(Number) : [], id => chestC[id], VRM.cpage, v => { VRM.cpage = v; }, chestTake);
+    side(325, 'Your items (= put in)', invList(), id => inv[id], VRM.ipage, v => { VRM.ipage = v; }, chestPut);
+    c.fillStyle = '#9ab'; c.font = '15px Arial'; c.fillText('Moves: ' + (chestStep === 'all' ? 'whole stack' : chestStep + ' at a time'), 14, 490);
+    VRM.tex.needsUpdate = true; return;
+  }
   btn(10, 8, 110, 44, t('craft'), () => { VRM.tab = 'craft'; VRM.page = 0; }, true, VRM.tab === 'craft');
   btn(125, 8, 110, 44, 'Items', () => { VRM.tab = 'items'; VRM.page = 0; }, true, VRM.tab === 'items');
   btn(240, 8, 110, 44, 'Chat', () => { VRM.tab = 'chat'; }, true, VRM.tab === 'chat');
@@ -4194,6 +4435,7 @@ function update() {
   else { if (player.alive) deathT = 0; else deathT += dt; _euler.set(pitch, yaw, deathF() * 1.4, 'YXZ'); camera.quaternion.setFromEuler(_euler); }
 
   sleepTick(); fallTrack(); voidWatch();
+  if (chestKey && chestPos && Math.hypot(chestPos.x - player.pos.x, chestPos.z - player.pos.z) > 7) { closeCraft(); if (VRM.open && VRM.tab === 'chest') vrMenuClose(); }
   // movement input
   let f = 0, sd = 0;
   if (keys['KeyW']) f += 1; if (keys['KeyS']) f -= 1;
