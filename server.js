@@ -36,7 +36,7 @@ const LOCAL_SAVE_MS = 10000, GH_SAVE_MS = 60000;
 // room: { id, name, pw, resetAt (ms time of the last admin reset), edits: Map("x,y,z" -> ts*64 + block id (0 = broken)), players: Map, timeBase, timeStamp }
 const rooms = new Map();
 // dropped items (the small blocks you get when mining) live on the server so every player sees and can pick up the same ones
-const DROP_ITEMS = { has: i => Number.isInteger(i) && i >= 1 && i <= 200 && i !== 15 && i !== 16 && i !== 17 && i !== 25 && !(i >= 11 && i <= 13) }, MAX_DROPS = 300, DROP_LIFE = 300000;
+const DROP_ITEMS = { has: i => Number.isInteger(i) && i >= 1 && i <= 200 && i !== 16 && i !== 17 && i !== 25 && !(i >= 11 && i <= 13) }, MAX_DROPS = 300, DROP_LIFE = 300000;
 let dropSeq = 0;
 const dropsOf = r => r.drops || (r.drops = new Map());
 // The Void resets when the last player has left it: everything built or dropped there is wiped and the islands come back as new
@@ -46,6 +46,7 @@ function voidCheck(room) {
   room.voidDirty = false;
   let n = 0; for (const k of [...room.edits.keys()]) if (+k.split(',')[0] >= 24000) { room.edits.delete(k); n++; }
   if (room.drops) for (const [id, d] of [...room.drops]) if (d.x >= 24000) room.drops.delete(id);
+  for (const k of [...chestsOf(room).keys()]) if (+k.split(',')[0] >= 24000) { chestsOf(room).delete(k); n++; }
   if (n) markDirty();
   broadcast(room, { t: 'voidreset' });
 }
@@ -85,13 +86,26 @@ function loadFromText(text) {
     for (const x of raw.rooms) {
       if (!x || typeof x.id !== 'string') continue;
       const r = { id: x.id, name: String(x.name || x.id).slice(0, 20), pw: typeof x.pw === 'string' ? x.pw : '', resetAt: Number.isInteger(x.reset) && x.reset > 0 ? x.reset : 0, edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
-      readEdits(x.edits, r.edits); out.set(r.id, r);
+      readEdits(x.edits, r.edits); readChests(x.chests, r); out.set(r.id, r);
     }
   } else if (Array.isArray(raw.edits)) {            // old single-world file -> becomes the main room
     const r = { id: 'main', name: 'Main World', pw: '', resetAt: 0, edits: new Map(), players: new Map(), timeBase: 0, timeStamp: Date.now() };
     readEdits(raw.edits, r.edits); out.set('main', r);
   }
   return out;
+}
+// ---- chests: what is inside (item id -> count), kept per room and saved with the world
+const chestsOf = r => r.chests || (r.chests = new Map());
+const chestKeyOk = k => typeof k === 'string' && /^-?\d{1,6},-?\d{1,3},-?\d{1,6}$/.test(k);
+function cleanChest(c, maxTotal) {                                  // item id -> count, at most 27 kinds
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
+  const o = {}; let kinds = 0, total = 0;
+  for (const [k, v] of Object.entries(c)) { const i = +k, n = Math.floor(+v); if (!DROP_ITEMS.has(i) || !(n >= 1) || kinds >= 27) continue; const m = Math.min(n, 9999); o[i] = m; kinds++; total += m; }
+  return total > (maxTotal || 1e9) ? null : o;
+}
+function readChests(list, r) {
+  if (!Array.isArray(list)) return;
+  for (const e of list) if (Array.isArray(e) && chestKeyOk(e[0])) { const c = cleanChest(e[1]); if (c) chestsOf(r).set(e[0], c); }
 }
 function totalEdits() { let n = 0; for (const r of rooms.values()) n += r.edits.size; return n; }
 function serialize() {
@@ -100,7 +114,7 @@ function serialize() {
     if (r.id !== 'main' && r.edits.size === 0 && r.players.size === 0) continue;   // do not save empty, unused rooms
     const list = [];
     for (const [k, v] of r.edits) { const [x, y, z] = k.split(',').map(Number); list.push([x, y, z, v % 64, Math.floor(v / 64)]); }
-    out.push({ id: r.id, name: r.name, pw: r.pw, reset: r.resetAt, edits: list });
+    out.push({ id: r.id, name: r.name, pw: r.pw, reset: r.resetAt, edits: list, chests: [...chestsOf(r)] });
   }
   return JSON.stringify({ rooms: out });
 }
@@ -312,6 +326,34 @@ function handle(p, m) {
     const x = Number(m.x), y = Number(m.y), z = Number(m.z);
     if (![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
     for (const q of room.players.values()) if (q !== p && Math.hypot(q.x - x, q.z - z) < 90) send(q, { t: 'boom', x, y, z });
+  } else if (m.t === 'copen' || m.t === 'cinit' || m.t === 'cmove' || m.t === 'cbreak') {      // chests
+    const now = Date.now(); if (now - (p.chW || 0) > 1000) { p.chW = now; p.chN = 0; } if (++p.chN > 30) return;      // at most 30 chest messages per second
+    if (!chestKeyOk(m.k)) return;
+    const [cx, cy, cz] = m.k.split(',').map(Number);
+    if (Math.hypot(cx - p.x, cz - p.z) > 14 || Math.abs(cy - p.y) > 14) return;
+    const chests = chestsOf(room), c = chests.get(m.k), tell = () => broadcast(room, { t: 'cdata', k: m.k, c: chests.get(m.k) || null });
+    if (m.t === 'copen') { send(p, { t: 'cdata', k: m.k, c: c || null }); }
+    else if (m.t === 'cinit') {
+      const n = cleanChest(m.c, 400); if (!n) return;
+      if (m.nw) chests.set(m.k, {}); else if (!c) chests.set(m.k, n); else return;      // nw: a chest somebody just placed starts empty
+      markDirty(); tell();
+    } else if (m.t === 'cmove') {
+      const i = int(m.i, 1, 200), n = int(m.n, 1, 9999); if (i === null || n === null || !c) return;
+      if (m.d === 't') {                                                               // take out
+        const give = Math.min(n, c[i] || 0); if (give < 1) { tell(); return; }
+        c[i] -= give; if (c[i] < 1) delete c[i]; markDirty(); send(p, { t: 'cgive', i, n: give }); tell();
+      } else {                                                                         // put in (what does not fit goes back)
+        if (!DROP_ITEMS.has(i)) { send(p, { t: 'cgive', i, n }); return; }
+        let put = 0;
+        if (c[i] !== undefined || Object.keys(c).length < 27) { put = Math.min(n, 9999 - (c[i] || 0)); if (put > 0) c[i] = (c[i] || 0) + put; else put = 0; }
+        if (put < n) send(p, { t: 'cgive', i, n: n - put });
+        markDirty(); tell();
+      }
+    } else if (m.t === 'cbreak') {                                                     // the chest block was broken: everything inside drops
+      const items = c || cleanChest(m.c, 80) || {};
+      for (const [i, n] of Object.entries(items)) addDrop(room, +i, cx, cy, cz, n);
+      chests.delete(m.k); markDirty(); broadcast(room, { t: 'cdata', k: m.k, c: null, gone: 1 });
+    }
   } else if (m.t === 'ptr') {           // somebody throws a gateway pointer: the others see it fly
     const now = Date.now(); if (now - (p.ptrT || 0) < 1000) return; p.ptrT = now;
     const o = {}; for (const k of ['x', 'y', 'z', 'ux', 'uz', 'len', 'gx', 'gz']) { o[k] = Number(m[k]); if (!Number.isFinite(o[k])) return; }
