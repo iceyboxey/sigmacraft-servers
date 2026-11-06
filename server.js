@@ -261,7 +261,7 @@ function handle(p, m) {
     const wasV = p.x >= 24000; p.x = x; p.y = y; p.z = z; p.yaw = yaw; p.pitch = pitch;
     if (x >= 24000) room.voidDirty = true; else if (wasV) voidCheck(room);
     const h = Array.isArray(m.h) && m.h.length === 6 && m.h.every(v => typeof v === 'number' && Math.abs(v) < 8) ? m.h.map(v => Math.round(v * 100) / 100) : undefined;   // VR hands, relative to the feet
-    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw, pitch, h }, p.id);
+    broadcast(room, { t: 'pos', id: p.id, x, y, z, yaw, pitch, h, f: m.f ? 1 : undefined }, p.id);
   } else if (m.t === 'block') {
     if (p.tokens < 1) return;           // rate limit
     p.tokens--;
@@ -403,7 +403,8 @@ function handle(p, m) {
     const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
     if (Math.hypot(dx, dy, dz) > (m.bow ? 80 : 6.5)) return;      // too far away (reach is 4 blocks, plus lag; arrows fly further)
     const h = Math.hypot(dx, dz) || 1;
-    send(q, { t: 'hurt', from: p.id, name: p.name, kx: dx / h, kz: dz / h });
+    const hearts = m.bow ? 1 : (int(m.h, 1, 8) || 1);                // a mace smash from high up hurts more
+    send(q, { t: 'hurt', from: p.id, name: p.name, kx: dx / h, kz: dz / h, h: hearts });
     for (const o of room.players.values()) if (o !== p && o !== q) send(o, { t: 'hit', id: q.id });
   } else if (m.t === 'admin') {
     if (p.fails >= 5) return;
