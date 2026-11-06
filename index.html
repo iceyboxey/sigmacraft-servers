@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-06T16:10">
+<meta name="sbx-build" content="2026-11-06T18:40">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -97,7 +97,7 @@
   #settings-panel {
     display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     background: rgba(20,20,30,0.97); border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 16px; padding: 24px 28px; z-index: 200; color: white;
+    border-radius: 16px; padding: 24px 28px; z-index: 300; color: white;
     width: min(440px, 94vw); max-height: 92vh; overflow-y: auto;
     box-shadow: 0 8px 40px rgba(0,0,0,0.7); touch-action: pan-y;
   }
@@ -124,7 +124,38 @@
     background: #4CAF50; color: white; font-size: 16px; font-weight: bold; cursor: pointer;
   }
   #close-settings:hover { background: #388e3c; }
-  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 150; }
+  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 290; }
+  /* ---------- options menu: dirt backdrop, stone buttons (same look as the main menu) ---------- */
+  #settings-panel { border: 3px solid #000; border-radius: 0; box-shadow: 0 0 0 2px #1a1a1a, 0 10px 40px rgba(0,0,0,0.8); padding: 18px 20px 20px; width: min(820px, 98vw); max-height: 94vh;
+    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)); image-rendering: pixelated; font-family: "Courier New", ui-monospace, monospace; }
+  #settings-panel.open, #settings-panel[style*="block"] { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 8px; align-content: start; }
+  @media (max-width: 700px) { #settings-panel[style*="block"] { grid-template-columns: 1fr; } }
+  #settings-panel > * { grid-column: 1 / -1; }
+  #settings-panel > .setting-row { grid-column: auto; }
+  #settings-panel > .setting-row:has(.btn-row), #settings-panel > #row-layout, #settings-panel > .setting-row:has(input[type=text]) { grid-column: 1 / -1; }
+  #settings-panel h2 { margin: 2px 0 12px; display: flex; justify-content: center; }
+  #settings-panel h2 canvas { height: 28px; width: auto; image-rendering: pixelated; }
+  #settings-panel .setting-row { margin: 0; padding: 6px 10px; min-height: 46px; background: #8b8b8b; background-image: linear-gradient(rgba(255,255,255,0.08), rgba(0,0,0,0.14));
+    border: 3px solid; border-color: #d4d4d4 #3b3b3b #3b3b3b #d4d4d4; outline: 2px solid #000; gap: 8px; }
+  #settings-panel .setting-row label { color: #fff; font-size: 14px; min-width: 0; text-shadow: 2px 2px 0 #3e3e3e; font-weight: bold; flex: 0 1 auto; }
+  #settings-panel .setting-val { color: #ffff55; text-shadow: 2px 2px 0 #3e3e3e; min-width: 0; font-size: 13px; }
+  #settings-panel .setting-row input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 60px; height: 22px; background: transparent; }
+  #settings-panel .setting-row input[type=range]::-webkit-slider-runnable-track { height: 14px; background: #000; border: 2px solid #5a5a5a; }
+  #settings-panel .setting-row input[type=range]::-moz-range-track { height: 10px; background: #000; border: 2px solid #5a5a5a; }
+  #settings-panel .setting-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 22px; margin-top: -7px; background: #b8b8b8; border: 2px solid; border-color: #f0f0f0 #4a4a4a #4a4a4a #f0f0f0; border-radius: 0; }
+  #settings-panel .setting-row input[type=range]::-moz-range-thumb { width: 8px; height: 18px; background: #b8b8b8; border: 2px solid; border-color: #f0f0f0 #4a4a4a #4a4a4a #f0f0f0; border-radius: 0; }
+  #settings-panel .setting-row input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 62px; height: 30px; margin: 0 0 0 auto; background: #6b6b6b; border: 3px solid; border-color: #d4d4d4 #3b3b3b #3b3b3b #d4d4d4; outline: 2px solid #000; border-radius: 0; cursor: pointer; position: relative; flex: 0 0 auto; }
+  #settings-panel .setting-row input[type=checkbox]::after { content: 'OFF'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: bold 13px "Courier New", monospace; color: #e66; text-shadow: 2px 2px 0 #3e3e3e; }
+  #settings-panel .setting-row input[type=checkbox]:checked::after { content: 'ON'; color: #8f8; }
+  #settings-panel .setting-row input[type=checkbox]:hover { background: #6f78a8; }
+  #settings-panel select, #settings-panel input[type=text], #settings-panel input[type=password], #settings-panel input:not([type]) { background: #000 !important; color: #fff !important; border: 2px solid #a0a0a0 !important; border-radius: 0 !important; padding: 5px 8px; font: 14px "Courier New", monospace; }
+  #settings-panel button { background: #8b8b8b; background-image: linear-gradient(rgba(255,255,255,0.08), rgba(0,0,0,0.14)); color: #fff; text-shadow: 2px 2px 0 #3e3e3e; font: bold 13px "Courier New", monospace;
+    border: 3px solid; border-color: #d4d4d4 #3b3b3b #3b3b3b #d4d4d4; outline: 2px solid #000; border-radius: 0; padding: 6px 10px; cursor: pointer; }
+  #settings-panel button:hover { background-color: #6f78a8; }
+  #settings-panel button:active { border-color: #3b3b3b #d4d4d4 #d4d4d4 #3b3b3b; }
+  #settings-panel .btn-row button { padding: 7px; }
+  #settings-panel #close-settings { width: min(420px, 100%); margin: 10px auto 0; padding: 12px; font-size: 16px; display: block; }
+
   #daytime {
     position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
     color: white; font-size: 14px; background: rgba(0,0,0,0.5); padding: 6px 16px; border-radius: 20px;
@@ -163,9 +194,32 @@
   /* ---------- Lobby ---------- */
   #lobby {
     display: flex; position: fixed; inset: 0; z-index: 250; align-items: center; justify-content: center;
-    background: linear-gradient(rgba(10,14,30,0.5), rgba(10,14,30,0.82)); color: #fff;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.12), rgba(0,0,0,0.5)); color: #fff;
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
     padding: 12px; overflow-y: auto; touch-action: pan-y;
   }
+  body.lobby-on > *:not(#lobby):not(#c):not(#settings-panel):not(#overlay):not(#updbar):not(script):not(style) { visibility: hidden !important; }
+  /* main menu look: pixel lettering, stone buttons */
+  .mm { width: min(560px, 94vw); display: flex; flex-direction: column; align-items: center; gap: 10px; margin: auto; padding: 10px 0; }
+  .mm-logowrap { position: relative; width: min(760px, 96vw); margin-bottom: 44px; }
+  #mm-logo { display: block; width: 100%; height: auto; image-rendering: pixelated; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.55)); }
+  #mm-splash { position: absolute; right: -1%; bottom: 6%; transform: rotate(-18deg); transform-origin: center; animation: mmpulse 0.9s ease-in-out infinite alternate; pointer-events: none; }
+  #mm-splash canvas { display: block; image-rendering: pixelated; height: clamp(16px, 3.6vw, 26px); width: auto; }
+  @keyframes mmpulse { from { transform: rotate(-18deg) scale(0.94); } to { transform: rotate(-18deg) scale(1.06); } }
+  .mm-btn { width: 100%; height: clamp(44px, 7.2vh, 56px); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; color: #fff;
+    background: #8b8b8b; border: 3px solid; border-color: #d4d4d4 #3b3b3b #3b3b3b #d4d4d4; outline: 2px solid #000; outline-offset: 0; margin: 2px 0;
+    background-image: linear-gradient(rgba(255,255,255,0.08), rgba(0,0,0,0.12)); }
+  .mm-btn:hover:not(:disabled) { background-color: #6f78a8; }
+  .mm-btn:active:not(:disabled) { border-color: #3b3b3b #d4d4d4 #d4d4d4 #3b3b3b; }
+  .mm-btn canvas { display: block; image-rendering: pixelated; height: clamp(15px, 2.6vh, 22px); width: auto; }
+  .mm-half { display: flex; gap: 12px; width: 100%; }
+  .mm-half .mm-btn { flex: 1; }
+  .mm-field { width: 100%; display: flex; gap: 8px; align-items: center; }
+  .mm-field input, .mm-field select { flex: 1; min-width: 0; background: #000; color: #fff; border: 2px solid #a0a0a0; padding: 8px 10px; font: 16px monospace; border-radius: 0; }
+  .mm-field select { flex: 0 0 auto; }
+  .mm-field canvas { height: 14px; width: auto; image-rendering: pixelated; flex: 0 0 auto; }
+  #lobby #lb-status, #lobby #lb-msg, #lobby #lb-diag { text-align: center; text-shadow: 1px 1px 0 #000, 0 0 4px #000; }
+  #lobby #lb-status { font-size: 14px; margin: 6px 0 0; } #lobby #lb-msg { font-size: 14px; min-height: 0; margin: 0; } #lobby #lb-diag { font-size: 12px; color: #ddd; margin: 0; }
   .lb-card {
     width: min(540px, 100%); max-height: calc(100vh - 24px); overflow-y: auto; touch-action: pan-y;
     background: rgba(20,20,30,0.96); border: 1px solid rgba(255,255,255,0.15);
@@ -266,7 +320,7 @@
 <div id="overlay"></div>
 
 <div id="settings-panel">
-  <h2 data-i18n="settings">⚙️ Settings</h2>
+  <h2 id="s-title"></h2>
   <div class="setting-row">
     <label data-i18n="lang">🌐 Language</label>
     <select id="s-lang">
@@ -340,7 +394,7 @@
     · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" style="color:#9ab">CC BY 4.0</a>
   <br><a href="https://sketchfab.com/3d-models/minecraft-zombie-45037ec52b6a4444a0981f916d0dbd43" target="_blank" rel="noopener noreferrer" style="color:#9ab">Zombie model: "minecraft zombie" by JoohnElkes</a> · <a href="https://sketchfab.com/3d-models/minecraft-grass-block-84938a8f3f8d4a0aa64aaa9c4e4d27d3" target="_blank" rel="noopener noreferrer" style="color:#9ab">Grass texture: "Minecraft Grass Block" by Render at Night</a> · <a href="https://sketchfab.com/3d-models/minecraft-stone-block-3678d5fd71c2413d82b8891282945510" target="_blank" rel="noopener noreferrer" style="color:#9ab">Stone texture: "Minecraft-stone-block" by momo</a> · <a href="https://sketchfab.com/3d-models/minecraft-sheep-5f06884e82394845bb1a4706a7ef548e" target="_blank" rel="noopener noreferrer" style="color:#9ab">Sheep model: "Minecraft - Sheep" by Vincent Yanez</a> · <a href="https://sketchfab.com/3d-models/minecraft-villager-905c2547478f4bc9b4a8a1521966ab81" target="_blank" rel="noopener noreferrer" style="color:#9ab">Villager model: "Minecraft - Villager" by Vincent Yanez</a> · <a href="https://sketchfab.com/3d-models/minecraft-cat-2b59a1815b1e47a298d4a3c084523d72" target="_blank" rel="noopener noreferrer" style="color:#9ab">Cat model: "Minecraft Cat" by JanesBT</a> · <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" style="color:#9ab">CC BY 4.0</a>
   </div>
-  <button id="close-settings" data-i18n="close">✅ Close</button>
+  <button id="close-settings" data-i18n="mm_done">Done</button>
 </div>
 
 <div id="lay-bar"><b>🎮 Drag a button to move it</b><label>Size <input type="range" id="lay-size" min="40" max="250" step="5" value="100"></label><label>Opacity <input type="range" id="lay-op" min="20" max="100" step="5" value="100"></label><button id="lay-mirror">↔ Mirror</button><button id="lay-reset">Reset</button><button id="lay-done">✅ Done</button></div>
@@ -352,15 +406,16 @@
 </div>
 
 <div id="lobby">
-  <div class="lb-card">
-    <h1 data-i18n="lb_title">🌍 3D Sandbox</h1>
-    <div class="lb-sub" data-i18n="lb_sub">Joining the world…</div>
-    <div class="lb-row"><label data-i18n="mp_name">👤 Name</label><input type="text" id="lb-name" maxlength="16" autocomplete="off">
-      <select id="lb-lang" style="flex:0 0 auto"><option value="en">English</option><option value="de">Deutsch</option></select></div>
+  <div class="mm">
+    <div class="mm-logowrap"><canvas id="mm-logo"></canvas><div id="mm-splash"></div></div>
+    <button class="mm-btn" id="mm-multi"></button>
+    <button class="mm-btn" id="lb-offline"></button>
+    <button class="mm-btn" id="mm-opts"></button>
+    <div class="mm-field"><span id="mm-namelbl"></span><input type="text" id="lb-name" maxlength="16" autocomplete="off">
+      <select id="lb-lang"><option value="en">English</option><option value="de">Deutsch</option></select></div>
     <div id="lb-status"></div>
     <div id="lb-msg"></div>
-    <div id="lb-diag" style="font-size:12px;color:#889;margin:0 0 12px;word-break:break-all"></div>
-    <button id="lb-offline" style="width:100%" data-i18n="lb_offline">Play offline</button>
+    <div id="lb-diag"></div>
   </div>
 </div>
 <div id="gameover">
@@ -392,7 +447,7 @@ const I18N = {
     mp_name:'👤 Name', mp_status:'🌐 Multiplayer', mp_off:'Offline', mp_on:'Online', mp_conn:'Connecting…', mp_players:'players',
     lb_title:'🌍 3D Sandbox', lb_sub:'Joining the world…', dg_up:'Server is running, joining…', dg_reach:'The server answers but the game connection is not ready yet (it may still be starting).', dg_down:'Cannot reach the server (it may be asleep or restarting – retrying).', server_l:'Server:', lb_rooms:'Rooms', lb_create:'Create a room',
     lb_ph_room:'Room name', lb_ph_pw:'Password (optional)', lb_create_btn:'Create & join', lb_join:'Join',
-    lb_quick:'▶ Quick play (Main World)', lb_offline:'Play offline', lb_online:'Connected', lb_connecting:'Connecting…',
+    lb_quick:'▶ Quick play (Main World)', lb_offline:'Play offline', mm_optt:'Options', mm_done:'Done', mm_multi:'Multiplayer', mm_single:'Singleplayer', mm_opts:'Options...', mm_name:'Name:', lb_online:'Connected', lb_connecting:'Connecting…',
     lb_wake:'The server may be waking up, this can take up to a minute.', lb_retry:'retrying…', lb_empty:'No rooms yet',
     lb_pw_prompt:'Room password:', lb_err_pw:'Wrong password', lb_err_full:'Room is full', lb_err_noroom:'Room not found',
     lb_err_toomany:'Too many rooms, try again later', lb_leave:'🚪 Leave room', lb_copy:'🔗 Copy invite link',
@@ -414,7 +469,7 @@ const I18N = {
     mp_name:'👤 Name', mp_status:'🌐 Mehrspieler', mp_off:'Offline', mp_on:'Online', mp_conn:'Verbinde…', mp_players:'Spieler',
     lb_title:'🌍 3D Sandbox', lb_sub:'Trete der Welt bei…', dg_up:'Server läuft, trete bei…', dg_reach:'Der Server antwortet, aber die Spielverbindung ist noch nicht bereit (er startet eventuell noch).', dg_down:'Server nicht erreichbar (schläft oder startet neu – neuer Versuch).', server_l:'Server:', lb_rooms:'Räume', lb_create:'Raum erstellen',
     lb_ph_room:'Raumname', lb_ph_pw:'Passwort (optional)', lb_create_btn:'Erstellen & beitreten', lb_join:'Beitreten',
-    lb_quick:'▶ Schnellstart (Hauptwelt)', lb_offline:'Offline spielen', lb_online:'Verbunden', lb_connecting:'Verbinde…',
+    lb_quick:'▶ Schnellstart (Hauptwelt)', lb_offline:'Offline spielen', mm_optt:'Optionen', mm_done:'Fertig', mm_multi:'Mehrspieler', mm_single:'Einzelspieler', mm_opts:'Optionen...', mm_name:'Name:', lb_online:'Verbunden', lb_connecting:'Verbinde…',
     lb_wake:'Der Server wacht eventuell gerade auf, das kann bis zu einer Minute dauern.', lb_retry:'neuer Versuch…', lb_empty:'Noch keine Räume',
     lb_pw_prompt:'Raum-Passwort:', lb_err_pw:'Falsches Passwort', lb_err_full:'Raum ist voll', lb_err_noroom:'Raum nicht gefunden',
     lb_err_toomany:'Zu viele Räume, versuche es später nochmal', lb_leave:'🚪 Raum verlassen', lb_copy:'🔗 Einladungslink kopieren',
@@ -3578,6 +3633,7 @@ el('s-fxb').addEventListener('change', e => setFx('bloom', e.target.checked));
 const remotes = new Map();
 let ws = null, netState = 'off', myId = null, reconnectT = null, posTimer = 0, onlineCount = 1;
 let lastSent = '', sinceSent = 0, lastClose = '';
+document.body.classList.add('lobby-on');
 let lobbyOpen = true, offlineMode = false, connectTries = 0, diagKey = '', joinMsg = '', helloRetryT = null;
 let playerName = '';
 try { playerName = localStorage.getItem('sbx_name') || ''; } catch (e) {}
@@ -3638,12 +3694,12 @@ function netSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o));
 function netBlock(x, y, z, b, d, n) { if (!FL.busy) fluidNudge(x, y, z); bkSet(x, y, z, b, Date.now() + clockOff); const m = { t: 'block', x, y, z, b }; if (d) { m.d = d; if (n > 1) m.n = n; } netSend(m); }
 
 function showLobby() {
-  lobbyOpen = true; el('lobby').style.display = 'flex';
+  lobbyOpen = true; el('lobby').style.display = 'flex'; document.body.classList.add('lobby-on');
   if (locked) document.exitPointerLock();
   closeSettings(); renderLobby();
 }
-function hideLobby() { lobbyOpen = false; el('lobby').style.display = 'none'; }
-function lbLabels() { el('lb-lang').value = lang; renderLobby(); }
+function hideLobby() { lobbyOpen = false; el('lobby').style.display = 'none'; document.body.classList.remove('lobby-on'); }
+function lbLabels() { el('lb-lang').value = lang; renderLobby(); if (typeof mmRender === 'function') mmRender(); }
 function serverHost() { const u = netUrl(); return u ? u.replace(/^wss?:\/\//, '') : '-'; }
 function renderLobby() {
   const st = el('lb-status');
@@ -3671,6 +3727,78 @@ function goOffline() {
   hideLobby(); netStatus();
 }
 el('lb-offline').addEventListener('click', goOffline);
+
+// ---------- main menu: pixel lettering (my own 5x7 pixel font) and a stone-block title ----------
+const PXF = (() => {
+  const g = {
+    A: '.###.|#...#|#...#|#####|#...#|#...#|#...#', B: '####.|#...#|#...#|####.|#...#|#...#|####.', C: '.####|#....|#....|#....|#....|#....|.####',
+    D: '####.|#...#|#...#|#...#|#...#|#...#|####.', E: '#####|#....|#....|####.|#....|#....|#####', F: '#####|#....|#....|####.|#....|#....|#....',
+    G: '.####|#....|#....|#.###|#...#|#...#|.###.', H: '#...#|#...#|#...#|#####|#...#|#...#|#...#', I: '#####|..#..|..#..|..#..|..#..|..#..|#####',
+    J: '..###|...#.|...#.|...#.|...#.|#..#.|.##..', K: '#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#', L: '#....|#....|#....|#....|#....|#....|#####',
+    M: '#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#', N: '#...#|##..#|#.#.#|#..##|#...#|#...#|#...#', O: '.###.|#...#|#...#|#...#|#...#|#...#|.###.',
+    P: '####.|#...#|#...#|####.|#....|#....|#....', Q: '.###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#', R: '####.|#...#|#...#|####.|#.#..|#..#.|#...#',
+    S: '.####|#....|#....|.###.|....#|....#|####.', T: '#####|..#..|..#..|..#..|..#..|..#..|..#..', U: '#...#|#...#|#...#|#...#|#...#|#...#|.###.',
+    V: '#...#|#...#|#...#|#...#|#...#|.#.#.|..#..', W: '#...#|#...#|#...#|#.#.#|#.#.#|##.##|#...#', X: '#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#',
+    Y: '#...#|#...#|.#.#.|..#..|..#..|..#..|..#..', Z: '#####|....#|...#.|..#..|.#...|#....|#####',
+    0: '.###.|#...#|#..##|#.#.#|##..#|#...#|.###.', 1: '..#..|.##..|..#..|..#..|..#..|..#..|.###.', 2: '.###.|#...#|....#|...#.|..#..|.#...|#####',
+    3: '.###.|#...#|....#|..##.|....#|#...#|.###.', 4: '...#.|..##.|.#.#.|#..#.|#####|...#.|...#.', 5: '#####|#....|####.|....#|....#|#...#|.###.',
+    6: '.###.|#....|#....|####.|#...#|#...#|.###.', 7: '#####|....#|...#.|..#..|.#...|.#...|.#...', 8: '.###.|#...#|#...#|.###.|#...#|#...#|.###.',
+    9: '.###.|#...#|#...#|.####|....#|....#|.###.',
+    '.': '.....|.....|.....|.....|.....|.##..|.##..', '!': '..#..|..#..|..#..|..#..|..#..|.....|..#..', '?': '.###.|#...#|....#|...#.|..#..|.....|..#..',
+    '-': '.....|.....|.....|#####|.....|.....|.....', ':': '.....|.##..|.##..|.....|.##..|.##..|.....', "'": '..#..|..#..|.....|.....|.....|.....|.....',
+    ',': '.....|.....|.....|.....|.##..|..#..|.#...', '+': '.....|..#..|..#..|#####|..#..|..#..|.....', '/': '....#|....#|...#.|..#..|.#...|#....|#....',
+    'Ä': '#...#|.###.|#...#|#...#|#####|#...#|#...#', 'Ö': '#...#|.###.|#...#|#...#|#...#|#...#|.###.', 'Ü': '#...#|.....|#...#|#...#|#...#|#...#|.###.',
+    'ß': '.###.|#...#|#...#|####.|#...#|#...#|#.##.'
+  };
+  const o = {}; for (const k in g) o[k] = g[k].split('|');
+  return o;
+})();
+function pxText(text, sc, color, shade) {                          // returns a canvas with the text in pixel letters (plus a drop shadow)
+  const str = String(text).toUpperCase().replace(/Ä/g, 'Ä').replace(/ß/g, 'ß'), cv = document.createElement('canvas');
+  let w = 0; for (const ch of str) w += (ch === ' ' ? 3 : (PXF[ch] ? 6 : 4));
+  cv.width = Math.max(1, (w - 1) * sc + (shade ? sc : 0)); cv.height = 7 * sc + (shade ? sc : 0);
+  const c = cv.getContext('2d'); let x = 0;
+  for (const ch of str) {
+    const gl = PXF[ch]; if (!gl) { x += ch === ' ' ? 3 : 4; continue; }
+    for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (gl[r][q] === '#') {
+      if (shade) { c.fillStyle = shade; c.fillRect((x + q) * sc + sc, r * sc + sc, sc, sc); }
+    }
+    for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (gl[r][q] === '#') { c.fillStyle = color; c.fillRect((x + q) * sc, r * sc, sc, sc); }
+    x += 6;
+  }
+  return cv;
+}
+function mmLogo() {                                                // "SIGMACRAFT" as chunky stone letters with a dark extrusion
+  const text = 'SIGMACRAFT', S = 9, D = 5, cv = el('mm-logo'), pad = 2;
+  const wpx = text.length * 7;
+  cv.width = wpx * S + D * 2 + pad * 2; cv.height = 8 * S + D * 2 + pad * 2 + 4;
+  const c = cv.getContext('2d'); let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const cells = [], seen = new Set(); let x = 0;
+  for (const ch of text) { const gl = PXF[ch]; for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (gl[r][q] === '#') for (const [dq, dr] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const k = (x + q + dq) + ',' + (r + dr); if (!seen.has(k)) { seen.add(k); cells.push([x + q + dq, r + dr]); } } x += 7; }       // every pixel is made fat (2x2) so the letters look like chunky stone
+  for (let d = D; d >= 1; d--) { c.fillStyle = d > 2 ? '#2a2525' : '#3a3434'; for (const [q, r] of cells) c.fillRect(pad + q * S + d, pad + r * S + d + 2, S, S); }
+  for (const [q, r] of cells) {
+    const px = pad + q * S, py = pad + r * S, v = Math.floor(rnd() * 26) - 12;
+    const base = 150 + v; c.fillStyle = `rgb(${base + 6},${base - 2},${base - 3})`; c.fillRect(px, py, S, S);
+    c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(px, py, S, 2); c.fillRect(px, py, 2, S);       // lit top-left edges
+    c.fillStyle = 'rgba(0,0,0,0.32)'; c.fillRect(px, py + S - 2, S, 2); c.fillRect(px + S - 2, py, 2, S);   // shaded bottom-right edges
+    if (rnd() < 0.22) { c.fillStyle = 'rgba(40,34,34,0.55)'; const cw = 2 + Math.floor(rnd() * 4); c.fillRect(px + 1 + Math.floor(rnd() * 4), py + 2 + Math.floor(rnd() * 5), cw, 1); }   // cracks
+  }
+}
+const MM_SPLASH = ['Now with flashlights!', 'Beware of skeletons!', 'Rain included!', 'Torches save lives!', 'Mind the spiders!', 'Sigma!', 'Dig down, carefully!', 'Made of blocks!', 'Try the Void!', 'Smash with the mace!'];
+function mmRender() {
+  const put = (id, txt, sc, col, sh) => { const e = el(id); e.textContent = ''; e.appendChild(pxText(txt, sc, col, sh)); };
+  put('mm-multi', t('mm_multi'), 3, '#fff', '#3e3e3e'); put('lb-offline', t('mm_single'), 3, '#fff', '#3e3e3e'); put('mm-opts', t('mm_opts'), 3, '#fff', '#3e3e3e');
+  put('mm-namelbl', t('mm_name'), 2, '#e8e8e8', '#222'); put('s-title', t('mm_optt'), 4, '#fff', '#3e3e3e');
+  if (!mmRender.done) { mmRender.done = true; mmLogo(); el('mm-splash').appendChild(pxText(MM_SPLASH[Math.floor(Math.random() * MM_SPLASH.length)], 3, '#ffff55', '#3f3f15')); }
+}
+el('mm-multi').addEventListener('click', () => { if (netState === 'on') return; offlineMode = false; connectTries = 0; clearTimeout(reconnectT); netConnect(); });
+el('mm-opts').addEventListener('click', openSettings);
+(() => {                                                   // dirt tile behind the options menu
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16; const c = cv.getContext('2d'); let sd = 11; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const v = 38 + Math.floor(r() * 26); c.fillStyle = `rgb(${v + 14},${v + 6},${v - 2})`; c.fillRect(x, y, 1, 1); }
+  el('settings-panel').style.backgroundImage = `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${cv.toDataURL()})`; el('settings-panel').style.backgroundSize = 'auto, 64px 64px';
+})();
+mmRender();
 el('lb-lang').addEventListener('change', e => { el('s-lang').value = e.target.value; el('s-lang').dispatchEvent(new Event('change')); });
 
 // =====================================================
