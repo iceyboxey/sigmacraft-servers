@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-05T15:00">
+<meta name="sbx-build" content="2026-11-06T13:30">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -51,6 +51,8 @@
   .crow .ct { flex: 1; min-width: 0; font-size: 14px; } .crow .ct small { display: block; color: #aab; font-size: 11px; } .crow .ct small .no { color: #ff7a7a; }
   .crow button { padding: 6px 12px; border: none; border-radius: 6px; background: #3a9b4a; color: #fff; font-size: 13px; cursor: pointer; }
   .crow button:disabled { background: #444; color: #888; cursor: default; }
+  #flash-btn { display: none; position: fixed; top: 52px; left: 170px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 20px; cursor: pointer; z-index: 100; }
+  body.touch #flash-btn { display: block; }
   #drop-btn, #trash-btn { display: none; position: fixed; top: 52px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 20px; cursor: pointer; z-index: 100; }
   #drop-btn { left: 70px; } #trash-btn { left: 120px; }
   body.touch #drop-btn, body.touch #trash-btn { display: block; }
@@ -254,7 +256,7 @@
 <div id="talk"></div>
 <button id="chat-btn">💬</button><button id="mic-btn">🎤</button>
 <button id="craft-btn">🔨</button>
-<button id="drop-btn">⬇</button><button id="trash-btn">🗑</button>
+<button id="flash-btn">🔦</button><button id="drop-btn">⬇</button><button id="trash-btn">🗑</button>
 <button id="vr-btn">🥽 VR</button>
 <div id="uw"></div>
 <div id="craft"></div>
@@ -282,6 +284,11 @@
     <label>🎵 Music</label>
     <input type="range" id="s-music" min="0" max="100" step="5" value="35">
     <span class="setting-val" id="v-music">35%</span>
+  </div>
+  <div class="setting-row">
+    <label>🔊 Sound effects</label>
+    <input type="range" id="s-sfx" min="0" max="100" step="5" value="80">
+    <span class="setting-val" id="v-sfx">80%</span>
   </div>
   <div class="setting-row"><label>🎶 Music track</label>
     <select id="s-track"><option value="def">Default</option><option value="lush">Lush cave</option><option value="custom">My own MP3</option></select></div>
@@ -462,6 +469,15 @@ scene.add(dirLight);
 const shadowTarget = new THREE.Object3D();
 scene.add(shadowTarget);
 dirLight.target = shadowTarget;
+// flashlight: a real spot light that casts shadows like the sun (it stays in the scene with intensity 0 so the shaders are not recompiled on every toggle)
+const flashLight = new THREE.SpotLight(0xfff0d0, 0, 40, 0.8, 0.4, 0.6);
+flashLight.castShadow = false;
+flashLight.shadow.mapSize.set(1024, 1024);
+flashLight.shadow.camera.near = 0.3; flashLight.shadow.camera.far = 32;
+flashLight.shadow.bias = -0.0004; flashLight.shadow.normalBias = 0.03;
+const flashTarget = new THREE.Object3D();
+flashLight.target = flashTarget;
+scene.add(flashLight); scene.add(flashTarget);
 const ambientLight = new THREE.AmbientLight(0xc9e8ff, 0.5);
 scene.add(ambientLight);
 
@@ -844,7 +860,7 @@ function renderInv() {
   clearTimeout(invSaveT);
   invSaveT = setTimeout(() => { try { localStorage.setItem('sbx_inv', JSON.stringify(Object.assign({ v: 2 }, inv))); } catch (e) {} }, 500);
 }
-function addItem(id, n) { if (!(id in inv)) return; inv[id] = Math.min(9999, inv[id] + (n || 1)); if (!selectedType) selectedType = id; renderInv(); }
+function addItem(id, n) { if (!(id in inv)) return; sfx('pop'); inv[id] = Math.min(9999, inv[id] + (n || 1)); if (!selectedType) selectedType = id; renderInv(); }
 // ---------- drop and delete items ----------
 let trashAsk = { id: 0, t: 0 };
 function tossId(id, n) {                                         // throw n of an item in front of you (everybody can pick it up, you after 2 s)
@@ -857,6 +873,7 @@ function tossId(id, n) {                                         // throw n of a
   if (netState === 'on') netSend({ t: 'toss', i: id, n, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
   else { spawnDrop(x, y, z, id, 0, n); drops[drops.length - 1].age = -4.5; }
 }
+function toggleFlash() { flashOn = !flashOn; const b = el('flash-btn'); if (b) b.style.background = flashOn ? 'rgba(255,220,90,0.85)' : ''; if (typeof toast === 'function') toast(flashOn ? (lang === 'de' ? '🔦 Taschenlampe an' : '🔦 Flashlight on') : (lang === 'de' ? '🔦 Taschenlampe aus' : '🔦 Flashlight off')); }
 function tossSelected(all) { if (selectedType) tossId(selectedType, all ? inv[selectedType] : 1); }
 function trashId(id, ask) {                                      // delete a whole stack; the first press only asks
   if (!(inv[id] > 0)) return true;
@@ -1078,15 +1095,22 @@ function lightGet(wx, ly, wz) {                                    // light of t
   if (xx < 0 || zz < 0 || xx >= LW || zz >= LW || ly < 0 || ly >= Y_H) { LB = 0; LS = 15; return; }
   const idx = (ly * LW + zz) * LW + xx; LB = LBLK[idx]; LS = ly > HMW[zz * LW + xx] ? 15 : LSKY[idx];
 }
+const flashU = { uFlashOn: { value: 0 }, uFlashPos: { value: new THREE.Vector3() }, uFlashDir: { value: new THREE.Vector3(0, 0, -1) } };
+const FR = 3, flashR = { uRN: { value: 0 }, uRP: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] }, uRD: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] } };   // flashlights of other players (up to 3)
+let flashOn = false;
 const lightUni = { value: 0.05 };                                  // the darkest it can get (a cave with no light)
 function lightPatch(mat) {
   mat.onBeforeCompile = function (sh) {
     THREE.Material.prototype.onBeforeCompile.call(this, sh);                // (the VR grading patch)
-    sh.uniforms.uMinL = lightUni;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aLight;\nvarying vec2 vLight;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLight = aLight;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vLight;\nuniform float uMinL;').replace('#include <map_fragment>', `#include <map_fragment>
+    sh.uniforms.uMinL = lightUni; sh.uniforms.uFlashOn = flashU.uFlashOn; sh.uniforms.uFlashPos = flashU.uFlashPos; sh.uniforms.uFlashDir = flashU.uFlashDir; sh.uniforms.uRN = flashR.uRN; sh.uniforms.uRP = flashR.uRP; sh.uniforms.uRD = flashR.uRD;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aLight;\nvarying vec2 vLight;\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLight = aLight; vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vLight;\nvarying vec3 vWP;\nfloat gFl = 0.0;\nuniform float uMinL;\nuniform float uFlashOn;\nuniform vec3 uFlashPos;\nuniform vec3 uFlashDir;\nuniform float uRN;\nuniform vec3 uRP[3];\nuniform vec3 uRD[3];').replace('#include <map_fragment>', `#include <map_fragment>
       { float bl = vLight.x / 15.0, sk = vLight.y / 15.0, L = max(bl, sk); L = max(pow(L, 1.5), uMinL);
-        diffuseColor.rgb *= L; diffuseColor.rgb *= mix(vec3(1.0), vec3(1.28, 1.0, 0.68), clamp(bl - sk, 0.0, 1.0)); }`);
+        float fl = 0.0; if (uFlashOn > 0.5) { vec3 fd = vWP - uFlashPos; float fdist = length(fd); float fc = dot(fd / max(fdist, 0.001), uFlashDir); float fr = clamp(1.0 - fdist / 34.0, 0.0, 1.0); fl = smoothstep(0.68, 0.86, fc) * clamp(sqrt(fr) * 1.5, 0.0, 1.0); if (fdist < 1.5) fl = max(fl, 0.0); }
+        for (int i = 0; i < 3; i++) { if (float(i) < uRN) { vec3 rd = vWP - uRP[i]; float rdist = length(rd); float rc = dot(rd / max(rdist, 0.001), uRD[i]); float rr = clamp(1.0 - rdist / 26.0, 0.0, 1.0); fl = max(fl, smoothstep(0.84, 0.95, rc) * rr * (0.35 + 0.65 * rr) * 1.15); } }
+        L = max(L, fl); gFl = fl;
+        diffuseColor.rgb *= L; diffuseColor.rgb *= mix(vec3(1.0), vec3(1.28, 1.0, 0.68), clamp(bl - sk, 0.0, 1.0)); }`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      totalEmissiveRadiance += diffuseColor.rgb * (1.05 * gFl / max(max(max(vLight.x, vLight.y) / 15.0, gFl), 0.05)) * vec3(1.0, 0.96, 0.86);   // the flashlight beam is never darkened by the sun's shadows`);
   };
 }
 lightPatch(chunkMat); lightPatch(waterMat);
@@ -1546,7 +1570,7 @@ const ARROW_GEO = new THREE.BoxGeometry(0.06, 0.06, 0.8), ARROW_MAT = new THREE.
 function shootBow() {
   if (bowCd > 0) return;
   if (!inv[113]) { toast('🏹 No arrows - craft some (stick + coal)'); return; }
-  inv[113]--; renderInv(); VRM.dirty = true; bowCd = 0.6; netSend({ t: 'swing' });
+  sfx('bow'); inv[113]--; renderInv(); VRM.dirty = true; bowCd = 0.6; netSend({ t: 'swing' });
   const o = new THREE.Vector3(), d = new THREE.Vector3();
   if (vrAim) { o.copy(vrAim.o); d.copy(vrAim.d); } else { o.copy(camPos()); camera.getWorldDirection(d); }
   d.normalize(); o.addScaledVector(d, 0.7);
@@ -1560,7 +1584,7 @@ function arrowHit(a) {                                            // true when t
     if (Math.abs(a.pos.x - m.pos.x) < 0.5 && Math.abs(a.pos.z - m.pos.z) < 0.5 && a.pos.y > m.pos.y - 0.1 && a.pos.y < m.pos.y + hgt) {
       const l = Math.hypot(a.vel.x, a.vel.z) || 1, kx = a.vel.x / l, kz = a.vel.z / l, dmg = 5;
       if (m.net) { m.lastMine = performance.now(); netSend({ t: 'ehit', id: m.id, d: dmg, kx: +kx.toFixed(2), kz: +kz.toFixed(2) }); }
-      else { m.hp -= dmg; m.kb = 0.35; m.vel.set(kx * 6, 3, kz * 6); if (m.hp <= 0) { addXp(XP_MOB[m.kind] || 0); killMonster(m); } }
+      else { sfx('hit', 0, m.pos.x, m.pos.y, m.pos.z); m.hp -= dmg; m.kb = 0.35; m.vel.set(kx * 6, 3, kz * 6); if (m.hp <= 0) { addXp(XP_MOB[m.kind] || 0); killMonster(m); } }
       return true;
     }
   }
@@ -1765,10 +1789,118 @@ try { const v = parseInt(localStorage.getItem('sbx_xp')); if (Number.isFinite(v)
 const xpNeed = lv => 8 + lv * 4;                                   // XP needed to go from level lv to lv + 1
 function xpLevel() { let lv = 0, left = xp; while (left >= xpNeed(lv)) { left -= xpNeed(lv); lv++; } return { lv, left, need: xpNeed(lv) }; }
 function xpUI() { vrDirty = true; const q = xpLevel(); el('xpfill').style.width = Math.round(q.left / q.need * 100) + '%'; el('xplv').textContent = 'Lv ' + q.lv + ' · ' + q.left + '/' + q.need + ' XP'; }
+// ---------- sound effects: all made with the Web Audio API (no sound files) ----------
+const SFX = { ctx: null, out: null, noise: null, vol: 80, last: {}, bad: false };
+try { const v = parseInt(localStorage.getItem('sbx_sfx')); if (Number.isFinite(v)) SFX.vol = Math.max(0, Math.min(100, v)); } catch (e) {}
+const BLOCK_SND = (() => { const m = {}; const set = (c, ids) => ids.forEach(i => m[i] = c);
+  set('grass', [1, 9]); set('dirt', [2]); set('stone', [3, 7, 14, 18, 19, 20, 22, 25, 26, 27, 28, 29, 30, 31, 32]); set('sand', [4, 6]);
+  set('wood', [5, 8, 10, 11, 12, 13, 15, 21, 24, 43]); set('glass', [23]); return m; })();
+const blockSnd = id => BLOCK_SND[id] || (id >= 33 && id <= 42 ? 'water' : 'stone');
+function sfxCtx() {
+  if (SFX.ctx || SFX.bad) return SFX.ctx;
+  try {
+    const C = window.AudioContext || window.webkitAudioContext; if (!C) { SFX.bad = true; return null; }
+    const c = new C(); SFX.ctx = c;
+    const comp = c.createDynamicsCompressor(); SFX.out = c.createGain(); SFX.out.gain.value = SFX.vol / 100;
+    SFX.out.connect(comp); comp.connect(c.destination);
+    const n = c.createBuffer(1, c.sampleRate, c.sampleRate), d = n.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; SFX.noise = n;
+  } catch (e) { SFX.bad = true; }
+  return SFX.ctx;
+}
+function sfxUnlock() { const c = sfxCtx(); if (c && c.state === 'suspended') c.resume(); }
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, sfxUnlock, { passive: true }));
+function sfxVol(v, save) { SFX.vol = Math.max(0, Math.min(100, v)); if (SFX.out) SFX.out.gain.value = SFX.vol / 100; if (save) try { localStorage.setItem('sbx_sfx', String(SFX.vol)); } catch (e) {} }
+// helpers: a node chain ends in a gain (+ pan) that goes to the master
+function sfxEnd(c, t, g, pan) {
+  const gn = c.createGain(); gn.gain.value = g;
+  if (c.createStereoPanner && pan) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); gn.connect(p); p.connect(SFX.out); } else gn.connect(SFX.out);
+  return gn;
+}
+function sfxNoise(c, t, dur, type, f0, f1, q, vol, dest, attack) {
+  const s = c.createBufferSource(); s.buffer = SFX.noise; s.loop = true;
+  const f = c.createBiquadFilter(); f.type = type; f.Q.value = q || 1; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (attack || 0.004)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(dest); s.start(t, Math.random() * 0.8); s.stop(t + dur + 0.02);
+}
+function sfxTone(c, t, dur, wave, f0, f1, vol, dest, attack) {
+  const o = c.createOscillator(); o.type = wave; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (attack || 0.005)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.02);
+}
+// material sounds: [filter, start Hz, end Hz, length, volume, tone Hz]
+const MAT = { grass: ['bandpass', 1800, 700, 0.11, 0.5, 0], dirt: ['lowpass', 900, 300, 0.12, 0.7, 110], stone: ['bandpass', 2400, 900, 0.1, 0.55, 190],
+  sand: ['highpass', 2600, 1400, 0.14, 0.35, 0], wood: ['bandpass', 900, 420, 0.1, 0.65, 150], glass: ['highpass', 4200, 2600, 0.16, 0.5, 1800], water: ['lowpass', 1400, 500, 0.2, 0.5, 0] };
+function sfxMat(c, t, cls, k, dest) {        // k: strength 0..2
+  const m = MAT[cls] || MAT.stone;
+  sfxNoise(c, t, m[3] * (0.6 + k * 0.5), m[0], m[1], m[2], 1.2, m[4] * k, dest);
+  if (m[5]) sfxTone(c, t, m[3] * 0.8, cls === 'glass' ? 'triangle' : 'sine', m[5] * (0.9 + Math.random() * 0.2), m[5] * 0.6, 0.35 * k, dest);
+}
+// sfx(name, a, x, y, z): the position (optional) makes it quieter and pans it left/right
+function sfx(name, a, x, y, z) {
+  if (SFX.vol <= 0) return;
+  const c = sfxCtx(); if (!c || c.state !== 'running') return;
+  const now = c.currentTime, key = name + (typeof a === 'string' ? a : '');
+  if (SFX.last[key] && now - SFX.last[key] < 0.045) return; SFX.last[key] = now;
+  let g = 1, pan = 0;
+  if (Number.isFinite(x)) {
+    const dx = x - player.pos.x, dy = y - player.pos.y, dz = z - player.pos.z, d = Math.hypot(dx, dy, dz);
+    const far = name === 'boom' ? 70 : 36; if (d > far) return;
+    g = 1 / (1 + d * (name === 'boom' ? 0.05 : 0.18)); pan = d > 0.5 ? (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / d * 0.8 : 0;
+  }
+  const t = now + 0.005, dest = sfxEnd(c, t, g, pan);
+  switch (name) {
+    case 'dig': sfxMat(c, t, a, 1.3, dest); sfxMat(c, t + 0.035, a, 0.7, dest); break;
+    case 'hitblock': sfxMat(c, t, a, 0.6, dest); break;
+    case 'place': sfxMat(c, t, a, 1, dest); sfxTone(c, t, 0.07, 'sine', 140, 90, 0.25, dest); break;
+    case 'step': sfxMat(c, t, a, 0.45, dest); break;
+    case 'land': sfxMat(c, t, a || 'dirt', 1.4, dest); sfxTone(c, t, 0.16, 'sine', 95, 45, 0.5, dest); break;
+    case 'splash': sfxNoise(c, t, 0.35, 'lowpass', 2200, 500, 0.8, 0.8, dest, 0.01); sfxNoise(c, t + 0.05, 0.25, 'bandpass', 1200, 600, 2, 0.4, dest); break;
+    case 'hurt': sfxTone(c, t, 0.22, 'sawtooth', 300, 110, 0.35, dest); sfxNoise(c, t, 0.12, 'bandpass', 700, 300, 1, 0.5, dest); break;
+    case 'hit': sfxNoise(c, t, 0.09, 'bandpass', 1400, 500, 1.5, 0.9, dest); sfxTone(c, t, 0.1, 'square', 220, 100, 0.2, dest); break;
+    case 'smash': sfxNoise(c, t, 0.5, 'lowpass', 1600, 120, 0.8, 1, dest, 0.003); sfxTone(c, t, 0.4, 'sine', 120, 35, 0.9, dest); sfxTone(c, t, 0.12, 'square', 900, 200, 0.3, dest); break;
+    case 'boom': sfxNoise(c, t, 1.1, 'lowpass', 1400, 70, 0.7, 1.6, dest, 0.004); sfxTone(c, t, 0.8, 'sine', 90, 28, 1.1, dest); sfxNoise(c, t + 0.1, 0.6, 'bandpass', 500, 150, 1, 0.6, dest); break;
+    case 'fuse': sfxNoise(c, t, 0.9, 'highpass', 3000, 5500, 0.8, 0.5, dest, 0.15); break;
+    case 'zombie': { const f = 95 + Math.random() * 25; sfxTone(c, t, 0.7, 'sawtooth', f, f * 0.72, 0.28, dest, 0.08); sfxTone(c, t, 0.7, 'square', f * 1.5, f * 1.05, 0.1, dest, 0.08); sfxNoise(c, t, 0.7, 'bandpass', 400, 250, 3, 0.25, dest, 0.1); break; }
+    case 'baa': { const f = 330 + Math.random() * 60; sfxTone(c, t, 0.55, 'sawtooth', f, f * 0.9, 0.22, dest, 0.03); sfxTone(c, t, 0.55, 'sine', f * 2, f * 1.8, 0.1, dest, 0.03); break; }
+    case 'meow': { const f = 650 + Math.random() * 100; sfxTone(c, t, 0.4, 'triangle', f, f * 1.45, 0.25, dest, 0.05); sfxTone(c, t + 0.2, 0.35, 'triangle', f * 1.45, f * 0.8, 0.25, dest, 0.02); break; }
+    case 'villager': { const f = 160 + Math.random() * 30; sfxTone(c, t, 0.18, 'square', f, f * 1.15, 0.15, dest); sfxTone(c, t + 0.2, 0.28, 'square', f * 1.1, f * 0.85, 0.15, dest); sfxNoise(c, t, 0.45, 'bandpass', 700, 500, 4, 0.12, dest); break; }
+    case 'mobdie': sfxTone(c, t, 0.5, 'sawtooth', 260, 60, 0.3, dest); sfxNoise(c, t, 0.3, 'bandpass', 600, 200, 1, 0.4, dest); break;
+    case 'eat': for (let i = 0; i < 3; i++) sfxNoise(c, t + i * 0.13, 0.08, 'bandpass', 1800 + i * 200, 900, 2, 0.7, dest); break;
+    case 'pop': sfxTone(c, t, 0.12, 'sine', 500, 1100, 0.35, dest); break;
+    case 'xp': sfxTone(c, t, 0.14, 'sine', 900 + Math.random() * 300, 1500, 0.22, dest); break;
+    case 'level': [523, 659, 784, 1047].forEach((f, i) => sfxTone(c, t + i * 0.09, 0.32, 'triangle', f, 0, 0.3, dest)); break;
+    case 'chest': sfxTone(c, t, 0.25, 'sawtooth', 150, 90, 0.18, dest, 0.02); sfxNoise(c, t + 0.15, 0.1, 'bandpass', 800, 500, 2, 0.5, dest); break;
+    case 'door': sfxNoise(c, t, 0.12, 'bandpass', 600, 300, 2, 0.8, dest); sfxTone(c, t, 0.14, 'sine', 120, 70, 0.4, dest); break;
+    case 'bow': sfxNoise(c, t, 0.12, 'bandpass', 2200, 900, 1, 0.5, dest); sfxTone(c, t, 0.15, 'triangle', 700, 200, 0.3, dest); break;
+    case 'arrow': sfxMat(c, t, a || 'wood', 0.9, dest); sfxTone(c, t, 0.1, 'triangle', 500, 260, 0.2, dest); break;
+    case 'death': sfxTone(c, t, 1.0, 'sawtooth', 400, 40, 0.4, dest, 0.02); sfxNoise(c, t, 0.6, 'lowpass', 900, 100, 1, 0.5, dest); break;
+    case 'click': sfxTone(c, t, 0.05, 'square', 1000, 700, 0.12, dest); break;
+  }
+}
+// footsteps, landing, splashes and the odd mob noise
+const sfxS = { dist: 0, px: 0, pz: 0, ground: true, vy: 0, wet: false, ambT: 4, init: false };
+function sfxTick(dt) {
+  if (SFX.vol <= 0 || !player.alive) { sfxS.init = false; return; }
+  if (!sfxS.init) { sfxS.px = player.pos.x; sfxS.pz = player.pos.z; sfxS.init = true; }
+  const moved = Math.hypot(player.pos.x - sfxS.px, player.pos.z - sfxS.pz); sfxS.px = player.pos.x; sfxS.pz = player.pos.z;
+  const bx = Math.round(player.pos.x), bz = Math.round(player.pos.z), under = getBlock(bx, Math.floor(player.pos.y - 0.1 + 0.5), bz);
+  const feet = getBlock(bx, Math.floor(player.pos.y + 0.5), bz), wet = isLiquid(feet);
+  if (wet && !sfxS.wet) sfx('splash'); sfxS.wet = wet;
+  if (player.onGround && !sfxS.ground && sfxS.vy < -6) sfx('land', blockSnd(under));
+  if (player.onGround && moved < 2 && !wet) { sfxS.dist += moved; if (sfxS.dist > 2.0) { sfxS.dist = 0; sfx('step', blockSnd(under)); } }
+  sfxS.ground = player.onGround; sfxS.vy = player.vel.y;
+  sfxS.ambT -= dt;
+  if (sfxS.ambT <= 0) {                                              // a mob nearby makes a noise now and then
+    sfxS.ambT = 4 + Math.random() * 9;
+    const near = monsters.filter(m => m.mesh && !m.dead && Math.hypot(m.pos.x - player.pos.x, m.pos.z - player.pos.z) < 18);
+    if (near.length) { const m = near[Math.floor(Math.random() * near.length)]; const nm = m.kind === 2 ? 'baa' : m.kind === 3 ? 'meow' : m.kind === 0 ? 'villager' : m.kind === 1 ? 'zombie' : ''; if (nm) sfx(nm, 0, m.pos.x, m.pos.y, m.pos.z); }
+  }
+}
 function addXp(n) {
   if (!(n > 0)) return;
   const before = xpLevel().lv; xp += Math.floor(n); try { localStorage.setItem('sbx_xp', String(xp)); } catch (e) {}
   xpUI(); const after = xpLevel().lv;
+  sfx(after > before ? 'level' : 'xp');
   if (after > before) toast('⭐ Level ' + after + (after <= 20 ? ' · mining +' + after * 3 + '%' : ''));
 }
 const XP_MOB = { 1: 5, 5: 6, 2: 2, 3: 2, 4: 1 };
@@ -1810,6 +1942,7 @@ function sleepTick() {
 }
 function takeDamage(by) {
   if (player.invincible > 0 || !player.alive) return;
+  sfx('hurt');
   if (sleeping) wakeUp();
   player.hp--; player.invincible = 1.5; player.regen = 0;
   updateHpBar();
@@ -1818,7 +1951,7 @@ function takeDamage(by) {
   document.body.appendChild(flash);
   setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 500); }, 100);
   if (player.hp <= 0) {
-    player.alive = false; vrDirty = true; netSend({ t: 'died' });
+    sfx('death'); player.alive = false; vrDirty = true; netSend({ t: 'died' });
     el('go-txt').textContent = by === 'lava' ? t('gameover_lava') : by === 'void' ? 'You fell into the void!' : by ? t('gameover_pvp').replace('{n}', by) : t('gameover_txt');
     el('gameover').style.display = 'flex';
     if (locked) document.exitPointerLock();
@@ -1921,6 +2054,7 @@ function boomHurt(x, y, z) {                                       // an explosi
   const l = Math.hypot(dx, dz) || 1; kb.x = dx / l * 10; kb.z = dz / l * 10; if (player.alive) { player.vel.y = 7; player.onGround = false; }
 }
 function explodeCreeper(m) {
+  sfx('boom', 0, m.pos.x, m.pos.y, m.pos.z);
   const cx = Math.round(m.pos.x), cy = Math.floor(m.pos.y), cz = Math.round(m.pos.z), R = 2.5;   // centred on the ground layer under it, so it digs a crater
   boomEffect(m.pos.x, m.pos.y + 0.8, m.pos.z); boomHurt(m.pos.x, m.pos.y + 0.8, m.pos.z);
   let n = 0;
@@ -2094,6 +2228,7 @@ function removeMonster(i) { scene.remove(monsters[i].mesh); monsters.splice(i, 1
 const corpses = [];
 function killMonster(m) {                                         // it dies: falls over to the side, then disappears
   const i = monsters.indexOf(m); if (i < 0) return;
+  sfx(m.kind === 2 ? 'baa' : m.kind === 3 ? 'meow' : 'mobdie', 0, m.pos.x, m.pos.y, m.pos.z);
   if (!m.net) {
     if (m.kind === 2) dropMeat(m); else if (m.kind === 4) { if (netState === 'on') netSend({ t: 'mobdrop', i: 139, n: 1, x: +m.pos.x.toFixed(2), y: +m.pos.y.toFixed(2), z: +m.pos.z.toFixed(2) }); else spawnDrop(m.pos.x, m.pos.y, m.pos.z, 139, 0, 1); } else if (m.kind !== 3) dropLoot(m, 132);                    // (a cat drops nothing)
     if (netState === 'on') entNet.dead.push([m.id, m.kind || 1, r2(m.pos.x), r2(m.pos.y), r2(m.pos.z), r2(m.mesh.rotation.y), 0]);   // tell the others it died
@@ -2187,7 +2322,7 @@ function updateMonsters(dt) {
     }
     if (d > 0.1) m.mesh.rotation.y = m.vel.x || m.vel.z ? Math.atan2(m.vel.x, m.vel.z) : Math.atan2(dx, dz);
     if (m.kind === 5) {                                                // the fuse: close to you it hisses and swells, run away and it calms down
-      if (d < 3.2 && Math.abs(p.y - player.pos.y) < 2.5 && !blastBlocked(p.x, p.y + 0.8, p.z, player.pos.x, player.pos.y + 0.9, player.pos.z, 0.3)) m.fuse += dt; else m.fuse = Math.max(0, m.fuse - dt * 0.6);
+      if (d < 3.2 && Math.abs(p.y - player.pos.y) < 2.5 && !blastBlocked(p.x, p.y + 0.8, p.z, player.pos.x, player.pos.y + 0.9, player.pos.z, 0.3)) { if (!(m.fuse > 0)) sfx('fuse', 0, m.pos.x, m.pos.y, m.pos.z); m.fuse += dt; } else m.fuse = Math.max(0, m.fuse - dt * 0.6);
       const sw = 1 + m.fuse * 0.28; m.mesh.scale.set(sw, sw, sw);
       if (m.mat && m.mat.emissive) m.mat.emissive.setHex(m.fuse > 0 && Math.floor(m.fuse * 8) % 2 === 0 ? 0xdddddd : 0x1a3a18);
       if (m.fuse > 1.5) { explodeCreeper(m); continue; }
@@ -2247,8 +2382,8 @@ crack.visible = false; scene.add(crack);
 function toolFor(kind) { const L = TOOLS[kind]; for (let i = L.length - 1; i >= 0; i--) if (inv[L[i][0]] > 0) return L[i]; return null; }
 let fallPeak = 0;                                               // highest point of the current fall (for the mace)
 function fallTrack() { if (player.onGround || player.pos.y > fallPeak) fallPeak = player.pos.y; }
-function maceSmash() { const f = fallPeak - player.pos.y; return !player.onGround && f > 1.5 ? Math.min(16, Math.floor(f * 2.5)) : 0; }   // the longer the fall, the harder the hit
-function maceHit() { const sm = maceSmash(); if (sm > 0) { fallPeak = player.pos.y; toast('💥 Smash! +' + sm); } return 6 + sm; }
+function maceSmash() { const f = fallPeak - player.pos.y; return !player.onGround && f > 1.5 ? Math.min(40, Math.floor(f * 2.5)) : 0; }   // the longer the fall, the harder the hit
+function maceHit() { const sm = maceSmash(); if (sm > 0) { sfx('smash'); fallPeak = player.pos.y; toast('💥 Smash! +' + sm); } return 6 + sm; }
 const swordDmg = () => { if (selectedType === 141 && inv[141] > 0) return maceHit(); const t = toolFor('sword'); return t ? t[1] : 1; };
 function breakTimeOf(bid) { const bi = BLOCK_INFO[bid] || { h: 0.6 }, tl = bi.t ? toolFor(bi.t) : null; return bi.h / TIER_SPEED[tl ? tl[1] : 0] / xpMining(); }
 function canHarvest(bid) { const bi = BLOCK_INFO[bid]; if (!bi || !bi.min) return true; const tl = bi.t ? toolFor(bi.t) : null; return (tl ? tl[1] : 0) >= bi.min; }
@@ -2262,6 +2397,7 @@ function dropFor(bid) {                                           // [item, coun
 }
 function breakBlockAt(t) {
   const bid = getBlock(t.x, t.y, t.z); if (!bid) return;
+  sfx('dig', blockSnd(bid));
   if (bid !== 43 && getBlock(t.x, t.y + 1, t.z) === 43) breakBlockAt({ x: t.x, y: t.y + 1, z: t.z });      // a torch falls off when the block under it goes
   const drop = dropFor(bid), online = netState === 'on', d = isDoorId(bid) ? doorParts(t.x, t.y, t.z) : null;
   if (bid === 15) chestBroken(t.x, t.y, t.z);
@@ -2282,6 +2418,7 @@ function updateMining(dt) {
   const k = target.x + ',' + target.y + ',' + target.z;
   if (mine.key !== k) { mine.key = k; mine.p = 0; }
   mine.p += dt / Math.max(0.04, breakTimeOf(bid));
+  mine.snd = (mine.snd || 0) - dt; if (mine.snd <= 0) { mine.snd = 0.22; sfx('hitblock', blockSnd(bid)); }
   crack.position.set(target.x, target.y, target.z); crack.visible = true; crack.material.opacity = Math.min(0.55, mine.p * 0.55);
   if (mine.p >= 1) { breakBlockAt(target); mine.key = ''; mine.p = 0; crack.visible = false; }
 }
@@ -2312,7 +2449,7 @@ function doAttack() {
       const l = Math.hypot(_dir.x, _dir.z) || 1;
       if (m.net) { m.lastMine = performance.now(); netSend({ t: 'ehit', id: m.id, d: swordDmg(), kx: +(_dir.x / l).toFixed(2), kz: +(_dir.z / l).toFixed(2) }); }   // the player who simulates it applies the hit
       else {
-        m.hp -= swordDmg(); m.kb = 0.35;
+        sfx('hit', 0, m.pos.x, m.pos.y, m.pos.z); m.hp -= swordDmg(); m.kb = 0.35;
         m.vel.set(_dir.x / l * 7, 4, _dir.z / l * 7);
         if (m.hp <= 0) { addXp(XP_MOB[m.kind] || 0); killMonster(m); }
       }
@@ -2327,17 +2464,20 @@ function doAttack() {
 }
 // ---------- player vs player ----------
 const kb = { x: 0, z: 0 };                       // knockback that fades out
+function maceHearts() { const sm = maceSmash(), h = Math.min(8, 2 + Math.floor(sm * 0.3)); if (sm > 0) { fallPeak = player.pos.y; toast('💥 Smash! ' + h + ' hearts'); } return h; }      // a mace hit takes 2 hearts; the higher you fall from the more (about 8 hearts from 8 blocks up)
 function hitPlayer(id, bow) {
   const r = remotes.get(id); if (!r) return;
   r.flash = 0.25;                                 // show the hit right away
-  netSend(bow ? { t: 'hit', id, bow: 1 } : { t: 'hit', id });                      // the server checks distance and tells the victim
+  const h = !bow && selectedType === 141 && inv[141] > 0 ? maceHearts() : 1;
+  netSend(bow ? { t: 'hit', id, bow: 1 } : h > 1 ? { t: 'hit', id, h } : { t: 'hit', id });                      // the server checks distance and tells the victim
 }
 function onHurt(m) {                              // someone hit me
   if (!player.alive || player.invincible > 0) return;
   const kx = Number.isFinite(m.kx) ? m.kx : 0, kz = Number.isFinite(m.kz) ? m.kz : 0, l = Math.hypot(kx, kz) || 1;
   kb.x = kx / l * 9; kb.z = kz / l * 9;
   if (player.onGround) { player.vel.y = 5; player.onGround = false; }
-  takeDamage(String(m.name || '?').slice(0, 16));
+  const n = Math.max(1, Math.min(8, Math.floor(+m.h) || 1));
+  for (let i = 0; i < n && player.alive; i++) { if (i > 0) player.invincible = 0; takeDamage(String(m.name || '?').slice(0, 16)); }
 }
 // ---------- shared villagers and monsters ----------
 // Whoever sees an entity first simulates it and sends its position 8x per second; the server keeps one owner per entity,
@@ -2653,6 +2793,7 @@ function openCraft() {
 function closeCraft() { craftOpen = false; chestKey = ''; el('chestui').style.display = 'none'; el('craft').style.display = 'none'; if (!settingsOpen) el('overlay').style.display = 'none'; }
 el('craft-btn').addEventListener('click', () => craftOpen ? closeCraft() : openCraft());
 el('drop-btn').addEventListener('click', () => tossSelected(false));
+el('flash-btn').addEventListener('click', toggleFlash);
 el('trash-btn').addEventListener('click', () => { if (selectedType) trashId(selectedType, true); });
 
 // ---------- messages, chests and food ----------
@@ -2683,6 +2824,7 @@ function chestStart(x, y, z) {                                    // what a neve
 }
 const stepN = have => chestStep === 'all' ? have : Math.min(have, +chestStep);
 function openChest(x, y, z) {
+  sfx('chest');
   if (lobbyOpen || settingsOpen || !player.alive) return;
   const key = chestKeyOf(x, y, z); chestKey = key; chestPos = { x, y, z }; chestC = null;
   if (netState === 'on') netSend({ t: 'copen', k: key });
@@ -2755,7 +2897,7 @@ function eatSelected() {
   if (hunger >= 20) { toast('You are not hungry'); return true; }
   hunger = Math.min(20, hunger + heal); updateHungerBar();
   toast('😋 ' + iname(selectedType) + ' (+' + heal + ')');
-  inv[selectedType]--; renderInv();
+  sfx('eat'); inv[selectedType]--; renderInv();
   return true;
 }
 
@@ -2810,6 +2952,7 @@ function doorParts(x, y, z) {                       // [lower y, upper y] of the
   return (a === 10 || a === 12) && (b === 11 || b === 13) ? [y0, y0 + 1] : null;
 }
 function toggleDoor(x, y, z) {
+  sfx('door');
   const d = doorParts(x, y, z); if (!d) return;
   const open = getBlock(x, d[0], z) === 12;
   doorSet(x, d[0], z, open ? 10 : 12); doorSet(x, d[1], z, open ? 11 : 13);
@@ -2836,7 +2979,7 @@ function doPlace() {
     if (getBlock(px, py + 1, pz) !== 0 || py + 1 - Y_MIN >= Y_H) return;
     const o = Math.abs(px - player.pos.x) < 0.5 + player.hw && Math.abs(pz - player.pos.z) < 0.5 + player.hw && py + 1.5 > player.pos.y && py - 0.5 < player.pos.y + player.h;
     if (o) return;
-    doorSet(px, py, pz, 10); doorSet(px, py + 1, pz, 11);
+    sfx('place', 'wood'); doorSet(px, py, pz, 10); doorSet(px, py + 1, pz, 11);
     inv[10]--; renderInv();
     return;
   }
@@ -2844,6 +2987,7 @@ function doPlace() {
   const overlap = selectedType !== 43 && Math.abs(px - player.pos.x) < 0.5 + player.hw && Math.abs(pz - player.pos.z) < 0.5 + player.hw &&
                   py + 0.5 > player.pos.y && py - 0.5 < player.pos.y + player.h;
   if (overlap) return;
+  sfx('place', blockSnd(selectedType));
   setBlock(px, py, pz, selectedType);
   netBlock(px, py, pz, selectedType);
   if (selectedType === 15) chestPlaced(px, py, pz);
@@ -2905,6 +3049,7 @@ document.addEventListener('keydown', e => {
   if (!chatOpen && (e.code === 'KeyT' || e.code === 'Enter') && !lobbyOpen && !settingsOpen && !craftOpen && player.alive) { e.preventDefault(); openChat(); return; }
   if (craftOpen && e.code !== 'KeyE' && e.code !== 'Escape') return; // typing a name/password must not move the player
   keys[e.code] = true;
+  if (e.code === 'KeyF' && !lobbyOpen && !settingsOpen && !e.ctrlKey && !e.metaKey) toggleFlash();
   if (e.code === 'KeyG' && !lobbyOpen && !settingsOpen) tossSelected(e.shiftKey);
   if (e.code === 'KeyX' && !lobbyOpen && !settingsOpen && selectedType) trashId(selectedType, true);
   if (e.code === 'KeyE') craftOpen ? closeCraft() : openCraft();
@@ -3152,6 +3297,11 @@ THREE.Material.prototype.onBeforeCompile = function (sh) {
     if (uVrBl > 0.5) { float m = max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b)); gl_FragColor.rgb += gl_FragColor.rgb * smoothstep(0.6, 0.95, m) * 0.5; }`);
 };
 function renderFrame() {
+  flashU.uFlashOn.value = flashOn ? 1 : 0;
+  { let n = 0; for (const r of remotes.values()) { if (!r.fl || r.dead || n >= FR) continue; const cp = Math.cos(r.pitch || 0); flashR.uRP.value[n].set(r.g.position.x, r.g.position.y + 1.6, r.g.position.z); flashR.uRD.value[n].set(-Math.sin(r.yaw) * cp, Math.sin(r.pitch || 0), -Math.cos(r.yaw) * cp); n++; } flashR.uRN.value = n; }
+  if (flashOn) { const r = aimRay(); flashU.uFlashPos.value.copy(r.o); flashU.uFlashDir.value.copy(r.d).normalize();
+    flashLight.position.copy(r.o); flashTarget.position.copy(r.o).addScaledVector(flashU.uFlashDir.value, 6); flashTarget.updateMatrixWorld(); flashLight.intensity = 3.6; flashLight.castShadow = true; }
+  else if (flashLight.castShadow) { flashLight.castShadow = false; flashLight.intensity = 0; }
   const vr = !!(renderer.xr && renderer.xr.isPresenting);
   FXU.fx.value = vr && FX.shaders ? 1 : 0; FXU.bl.value = vr && FX.bloom ? 1 : 0;
   if ((!FX.shaders && !FX.bloom) || vr) { renderer.render(scene, camera); return; }
@@ -3450,7 +3600,7 @@ function netHandle(m) {
     case 'cgive': if (Number.isInteger(m.i) && Number.isInteger(m.n) && m.n > 0 && m.n < 10000) { addItem(m.i, m.n); chestRefresh(); } break;
     case 'reset': for (let i = drops.length - 1; i >= 0; i--) if (drops[i].did) removeDrop(i); knownReset = srvReset = m.r || Date.now() + clockOff; bk.clear(); serverSeen.clear(); chunkEdits.clear(); reloadWorld(); bkTouch(); break;
     case 'admin': isAdmin = !!m.ok; admStatus(m.ok ? 'adm_ok' : 'adm_bad'); if (m.ok && mySkin === 'blue') sendSkin(); break;
-    case 'pos': { const r = remotes.get(m.id); if (r) { r.tx = m.x; r.ty = m.y; r.tz = m.z; r.yaw = m.yaw; r.pitch = Number.isFinite(m.pitch) ? m.pitch : 0; r.hT = Array.isArray(m.h) && m.h.length === 6 && m.h.every(Number.isFinite) ? m.h : null; if (!r.hT) r.hC = null; } break; }
+    case 'pos': { const r = remotes.get(m.id); if (r) { r.tx = m.x; r.ty = m.y; r.tz = m.z; r.yaw = m.yaw; r.pitch = Number.isFinite(m.pitch) ? m.pitch : 0; r.fl = !!m.f; r.hT = Array.isArray(m.h) && m.h.length === 6 && m.h.every(Number.isFinite) ? m.h : null; if (!r.hT) r.hC = null; } break; }
     case 'block': bkFromServer([[m.x, m.y, m.z, m.b, m.ts]]); break;
     case 'time': if (typeof m.c === 'number') cycleTime = m.c; break;
     case 'sleepers': if (sleeping) { sleepInfo = 'Sleeping… ' + (+m.s || 0) + '/' + (+m.n || 1) + ' in bed'; setSleepUI(true); } else if (isNight && +m.s > 0) { try { toast('😴 ' + (+m.s) + '/' + (+m.n) + ' players are in bed'); } catch (e) {} } break;
@@ -3476,7 +3626,7 @@ function netHandle(m) {
 
 // apply block edits from the server (also for chunks that are not loaded yet)
 function applyEdits(list) {
-  const rebuild = new Set();
+  const rebuild = new Set(), relit = new Set(); let soundN = 0;
   for (const e of list) {
     const [x, y, z, b] = e;
     if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z) || !Number.isInteger(b)) continue;
@@ -3486,14 +3636,14 @@ function applyEdits(list) {
     ed.set(idx, b);
     const ch = chunks.get(key);
     if (!ch) continue;
+    if (soundN < 3 && netState === 'on' && ch.data[idx] !== b) { soundN++; sfx(b ? 'place' : 'dig', blockSnd(b || ch.data[idx]), x, y, z); }
     ch.data[idx] = b;
     if (b) { if (ly > ch.top) ch.top = ly; if (ly < ch.bottom) ch.bottom = ly; }
-    rebuild.add(ch);
-    const lx = x & 15, lz = z & 15;
+    rebuild.add(ch); relit.add(ch);
     const add = (a, c) => { const n = chunks.get(ckey(a, c)); if (n) rebuild.add(n); };
-    if (lx === 0) add(cx - 1, cz); if (lx === 15) add(cx + 1, cz);
-    if (lz === 0) add(cx, cz - 1); if (lz === 15) add(cx, cz + 1);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (dx || dz) add(cx + dx, cz + dz);   // light reaches into the neighbours
   }
+  relit.forEach(c => { if (c.cx * 16 < VOID_X0) { c.hm = calcHm(c); c.emit = calcEmit(c); } });   // keep sky/torch light data in sync with remote edits
   rebuild.forEach(c => buildChunkMesh(c));
 }
 
@@ -3645,6 +3795,8 @@ function musicTick(dt) {
   musicMix(false);
 }
 el('s-music').addEventListener('input', e => applyMusic(+e.target.value, true));
+el('s-sfx').value = SFX.vol; el('v-sfx').textContent = SFX.vol ? SFX.vol + '%' : 'off';
+el('s-sfx').addEventListener('input', e => { sfxVol(+e.target.value, true); el('v-sfx').textContent = SFX.vol ? SFX.vol + '%' : 'off'; sfx('place', 'stone'); });
 for (const ev of ['pointerdown', 'touchend', 'keydown', 'click']) addEventListener(ev, musicStart, { passive: true });
 applyMusic(musicVol, false);
 // ---------- skins ----------
@@ -3986,11 +4138,12 @@ function netUpdate(dt) {
   if (posTimer >= 0.1) {
     posTimer = 0;
     const hands = xrActive ? vrHands() : null;
-    const msg = `${player.pos.x.toFixed(2)},${player.pos.y.toFixed(2)},${player.pos.z.toFixed(2)},${yaw.toFixed(2)},${pitch.toFixed(2)}${hands ? ',' + hands.join(',') : ''}`;
+    const msg = `${player.pos.x.toFixed(2)},${player.pos.y.toFixed(2)},${player.pos.z.toFixed(2)},${yaw.toFixed(2)},${pitch.toFixed(2)}${hands ? ',' + hands.join(',') : ''}${flashOn ? 'F' : ''}`;
     if (msg !== lastSent || sinceSent > 1) {
       lastSent = msg; sinceSent = 0;
       const pm = { t: 'pos', x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yaw: +yaw.toFixed(2), pitch: +pitch.toFixed(2) };
       if (hands) pm.h = hands;
+      if (flashOn) pm.f = 1;
       netSend(pm);
     }
   }
@@ -4320,7 +4473,7 @@ function vrPreUpdate(dt) {                                       // before movem
       if (b === 3 || (b === 5 && hand === 'left')) { VRM.open ? vrMenuClose() : vrMenuOpen(VRM.tab); }
       else if (b === 4 && hand !== 'left') vr.jump = true;
       else if (b === 5 && hand !== 'left') selectType(invList().indexOf(selectedType) + 2);
-      else if (b === 4 && hand === 'left') selectType(invList().indexOf(selectedType));
+      else if (b === 4 && hand === 'left') toggleFlash();
     }
     const gp = src.gamepad; if (gp && hand !== 'left' && gp.buttons[4] && gp.buttons[4].pressed) vr.jump = true;
     if (vr.hold[c.userData.i] && attackCooldown <= 0 && !VRM.open) vrAct(c, 'break');                                                  // hold the trigger to keep mining
@@ -4476,7 +4629,7 @@ function update() {
   updateTarget();
   updateMining(dt);
   updateMonsters(dt);
-  updateDrops(dt);
+  updateDrops(dt); sfxTick(dt);
   updateVillagers(dt); netEntsTick(dt); updateCorpses(dt); voiceUpdate(); updateHeldLocal();
   netUpdate(dt);
 
