@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-07T13:30">
+<meta name="sbx-build" content="2026-11-07T20:15">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -169,6 +169,8 @@
   #xpfill { height: 100%; width: 0; background: #7CFC3A; border-radius: 4px; transition: width 0.25s; }
   #xplv { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); font: bold 14px Arial; color: #7CFC3A; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; }
   body.touch #xpbar { bottom: 2px; width: 200px; }
+  #compass { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.45); color: #fff; font: 13px/1 monospace; padding: 5px 10px; border-radius: 8px; pointer-events: none; z-index: 90; white-space: nowrap; }
+  body.lobby-on #compass { display: none; }
   #hpbar { position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; pointer-events: none; }
   .heart { font-size: 22px; }
   #toast {
@@ -301,6 +303,7 @@
   <span id="daytime-label" data-i18n="day">Day</span>
 </div>
 <div id="hungerbar"></div>
+<div id="compass"></div>
 <div id="hpbar"></div>
 <div id="xpbar"><div id="xpfill"></div><span id="xplv"></span></div>
 <div id="warning" data-i18n="warning"></div>
@@ -443,7 +446,7 @@
 // ---------- the "..." world: nothing in it is saved, and nothing saved is loaded (every visit starts fresh) ----------
 let GHOST = (() => { try { return sessionStorage.getItem('sbx_ghost') === '1'; } catch (e) { return false; } })();
 {
-  const GK = /^sbx_(bed|chestdata|hm|hunger|inv|xp|ret|pos)$/, gi = Storage.prototype.getItem, si = Storage.prototype.setItem;
+  const GK = /^sbx_(bed|chestdata|hm|hunger|inv|xp|ret|pos|wear|death)$/, gi = Storage.prototype.getItem, si = Storage.prototype.setItem;
   Storage.prototype.getItem = function (k) { return GHOST && this === localStorage && GK.test(k) ? null : gi.call(this, k); };
   Storage.prototype.setItem = function (k, v) { if (GHOST && this === localStorage && GK.test(k)) return; return si.call(this, k, v); };
 }
@@ -558,7 +561,7 @@ scene.add(ambientLight);
 // =====================================================
 // PROCEDURAL TEXTURE ATLAS (16x16 pixel tiles)
 // =====================================================
-const TILE = 16, NT = 80;
+const TILE = 16, NT = 112;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width = TILE * NT; atlasCanvas.height = TILE;
 const actx = atlasCanvas.getContext('2d');
@@ -786,6 +789,15 @@ for (let i = 0; i < 3; i++) {
     for (let i = 0; i < 7; i++) { const bx = 1 + ((rnd() * 13) | 0), by = 1 + ((rnd() * 13) | 0); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (rnd() < 0.85) { const k = 0.85 + rnd() * 0.3; PX(tile, bx + dx, by + dy, col[0] * k, col[1] * k, col[2] * k); } }
   }
 }
+// 80-91 armor icons (leather / iron / diamond x helmet, chestplate, leggings, boots), 92 leather
+for (const [base, c] of [[80, [150, 92, 50]], [84, [215, 215, 220]], [88, [70, 226, 222]]]) {
+  const dk = [c[0] * 0.6, c[1] * 0.6, c[2] * 0.6];
+  RECT(base, 4, 3, 11, 4, c); RECT(base, 3, 5, 12, 10, c); RECT(base, 5, 8, 10, 10, [20, 20, 24]); LN(base, 3, 5, 12, 5, 1, dk);
+  RECT(base + 1, 3, 3, 12, 13, c); RECT(base + 1, 1, 3, 2, 9, c); RECT(base + 1, 13, 3, 14, 9, c); RECT(base + 1, 6, 3, 9, 4, [20, 20, 24]); LN(base + 1, 3, 9, 12, 9, 1, dk);
+  RECT(base + 2, 4, 3, 11, 6, c); RECT(base + 2, 4, 7, 7, 13, c); RECT(base + 2, 8, 7, 11, 13, c); LN(base + 2, 4, 6, 11, 6, 1, dk);
+  RECT(base + 3, 3, 7, 6, 12, c); RECT(base + 3, 9, 7, 12, 12, c); RECT(base + 3, 2, 11, 6, 13, c); RECT(base + 3, 9, 11, 13, 13, c); LN(base + 3, 3, 11, 6, 11, 1, dk);
+}
+RECT(92, 3, 4, 12, 11, [158, 100, 56]); RECT(92, 5, 6, 10, 9, [128, 78, 42]); LN(92, 3, 4, 12, 4, 1, [190, 130, 80]);
 // 75 raw fish, 76 cooked fish
 for (const [tile, c, belly] of [[75, [120, 150, 170], [205, 215, 220]], [76, [168, 108, 60], [214, 168, 110]]]) {
   BLOB(tile, 7.5, 8.5, 5.8, 3.2, c); BLOB(tile, 7.5, 10, 4.6, 1.5, belly);
@@ -874,7 +886,11 @@ const ITEMDEF = [
   [127, 57, 'Bucket', 'Eimer'], [128, 58, 'Water bucket', 'Wassereimer'], [129, 59, 'Lava bucket', 'Lavaeimer'],
   [130, 60, 'Raw mutton', 'Rohes Hammelfleisch'], [131, 61, 'Cooked mutton', 'Gebratenes Hammelfleisch'],
   [132, 62, 'ද', 'ද'], [133, 63, 'Gateway pointer', 'Tor-Zeiger'],
-  [139, 75, 'Raw fish', 'Roher Fisch'], [140, 76, 'Cooked fish', 'Gebratener Fisch'], [141, 77, 'Mace', 'Streitkolben'], [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert']
+  [139, 75, 'Raw fish', 'Roher Fisch'], [140, 76, 'Cooked fish', 'Gebratener Fisch'], [141, 77, 'Mace', 'Streitkolben'], [134, 67, 'Diamond', 'Diamant'], [135, 68, 'Diamond pickaxe', 'Diamantspitzhacke'], [136, 69, 'Diamond axe', 'Diamantaxt'], [137, 70, 'Diamond shovel', 'Diamantschaufel'], [138, 71, 'Diamond sword', 'Diamantschwert'],
+  [142, 80, 'Leather cap', 'Lederkappe'], [143, 81, 'Leather tunic', 'Lederjacke'], [144, 82, 'Leather pants', 'Lederhose'], [145, 83, 'Leather boots', 'Lederstiefel'],
+  [146, 84, 'Iron helmet', 'Eisenhelm'], [147, 85, 'Iron chestplate', 'Eisenbrustpanzer'], [148, 86, 'Iron leggings', 'Eisenhose'], [149, 87, 'Iron boots', 'Eisenstiefel'],
+  [150, 88, 'Diamond helmet', 'Diamanthelm'], [151, 89, 'Diamond chestplate', 'Diamantbrustpanzer'], [152, 90, 'Diamond leggings', 'Diamanthose'], [153, 91, 'Diamond boots', 'Diamantstiefel'],
+  [154, 92, 'Leather', 'Leder']
 ];
 const ITEMS = {};
 BLOCKS[43] = { faces: [78, 78, 78, 78, 78, 78], icon: 79 };            // 43 torch
@@ -901,7 +917,7 @@ const wLvl = id => id === 16 ? 0 : (id >= 33 && id <= 39 ? id - 32 : -1);       
 const lLvl = id => id === 17 ? 0 : (id >= 40 && id <= 42 ? id - 39 : -1);       // lava: 0 = source, 1-3 = flowing
 const isWaterId = id => id === 16 || (id >= 33 && id <= 39), isLavaId = id => id === 17 || (id >= 40 && id <= 42);
 // ---------- Inventory: everything you mine drops as a small block; picking it up fills the corner panel ----------
-const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 43, 15, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141];
+const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 43, 15, 14, 18, 19, 20, 29, 30, 31, 32, 21, 22, 23, 24, 26, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154];
 const inv = {}; for (const i of ITEM_IDS) inv[i] = 0;
 try {
   const sv = JSON.parse(localStorage.getItem('sbx_inv') || '{}');
@@ -927,10 +943,12 @@ function renderInv() {
     const num = document.createElement('span'); num.textContent = j === 9 ? 0 : j + 1;
     const cnt = document.createElement('span'); cnt.className = 'n'; cnt.textContent = inv[id];
     slot.appendChild(cv); slot.appendChild(num); slot.appendChild(cnt);
+    if (MAXUSE[id] && wear[id] > 0) { const f = 1 - wear[id] / MAXUSE[id], bar = document.createElement('div'); bar.style.cssText = `position:absolute;left:3px;bottom:2px;height:3px;width:${Math.round(f * 100) * 0.4}px;max-width:40px;background:${f > 0.5 ? '#4c4' : f > 0.2 ? '#ec4' : '#e44'};border-radius:1px`; slot.appendChild(bar); }
     slot.addEventListener('click', () => { selectedType = id; renderInv(); });
     invEl.appendChild(slot);
   });
   invEl.style.display = 'flex'; vrDirty = true; if (typeof craftOpen !== 'undefined' && craftOpen) { renderCraft(); if (chestKey) renderChest(); }
+  try { updateHpBar(); } catch (e) {}
   clearTimeout(invSaveT);
   invSaveT = setTimeout(() => { try { localStorage.setItem('sbx_inv', JSON.stringify(Object.assign({ v: 2 }, inv))); } catch (e) {} }, 500);
 }
@@ -2128,6 +2146,29 @@ function ghostSteveBuild(x, y, z) {
   g.position.set(x, y, z); scene.add(g);
   return g;
 }
+// ---------- compass, coordinates and the place where you last died ----------
+let deathPt = null; try { deathPt = JSON.parse(localStorage.getItem('sbx_death') || 'null'); } catch (e) {}
+let deathBeam = null, compT = 0;
+function setDeathBeam() {
+  if (deathBeam) { scene.remove(deathBeam); deathBeam = null; }
+  if (!deathPt || !Number.isFinite(deathPt.x)) return;
+  deathBeam = new THREE.Mesh(new THREE.BoxGeometry(0.5, 80, 0.5), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0.35, depthWrite: false, fog: false }));
+  deathBeam.position.set(deathPt.x, deathPt.y + 40, deathPt.z); scene.add(deathBeam);
+}
+function markDeath() { deathPt = { x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1), z: +player.pos.z.toFixed(1) }; try { localStorage.setItem('sbx_death', JSON.stringify(deathPt)); } catch (e) {} setDeathBeam(); }
+function compassTick(dt) {
+  compT -= dt; if (compT > 0) return; compT = 0.2;
+  const c = el('compass'); if (!c || lobbyOpen) return;
+  const bear = -yaw, N = (Math.round(((bear * 180 / Math.PI) % 360 + 360) % 360 / 45) % 8), dir = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][N];
+  let txt = '🧭 ' + dir + '  ' + Math.round(player.pos.x) + ' ' + Math.round(player.pos.y) + ' ' + Math.round(player.pos.z);
+  if (deathPt && Math.abs(deathPt.x - player.pos.x) < 1e5) {
+    const dx = deathPt.x - player.pos.x, dz = deathPt.z - player.pos.z, d = Math.hypot(dx, dz);
+    if (d < 4) { deathPt = null; try { localStorage.removeItem('sbx_death'); } catch (e) {} setDeathBeam(); }
+    else { const rel = Math.atan2(dx, -dz) - bear, k = (Math.round(((rel * 180 / Math.PI) % 360 + 360) % 360 / 45) % 8); txt += '   ☠ ' + ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'][k] + ' ' + Math.round(d) + 'm'; }
+  }
+  c.textContent = txt;
+}
+if (deathPt) setTimeout(setDeathBeam, 0);
 function ghostSteveTick(dt) {
   if (!GHOST || lobbyOpen || !player.alive) return;
   if (!GV.g) {
@@ -2185,6 +2226,7 @@ function updateHpBar() {
     const h = document.createElement('span'); h.className = 'heart';
     h.textContent = i < player.hp ? '❤️' : '🖤'; hp.appendChild(h);
   }
+  try { const a = armorPts(); if (a) { const h = document.createElement('span'); h.className = 'heart'; h.style.cssText = 'font-size:16px;align-self:center;color:#cfe;margin-left:4px'; h.textContent = '🛡️' + a; hp.appendChild(h); } } catch (e) {}
 }
 let warnShown = false;
 function setWarn(v) { if (v !== warnShown) { el('warning').style.display = v ? 'block' : 'none'; warnShown = v; } }
@@ -2214,6 +2256,8 @@ function sleepTick() {
 }
 function takeDamage(by) {
   if (player.invincible > 0 || !player.alive) return;
+  if (by !== 'lava' && by !== 'void') { const pts = armorPts(); if (pts && Math.random() < pts * 0.06) { sfx('hit'); player.invincible = 0.6; const w = armorWorn(); wearItem(w[Math.floor(Math.random() * w.length)]); updateHpBar(); return; } }   // armor soaked up the hit
+  { const w = armorWorn(); if (w.length) wearItem(w[Math.floor(Math.random() * w.length)]); }
   sfx('hurt');
   if (sleeping) wakeUp();
   player.hp--; player.invincible = 1.5; player.regen = 0;
@@ -2223,7 +2267,7 @@ function takeDamage(by) {
   document.body.appendChild(flash);
   setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 500); }, 100);
   if (player.hp <= 0) {
-    sfx('death'); player.alive = false; vrDirty = true; netSend({ t: 'died' });
+    markDeath(); sfx('death'); player.alive = false; vrDirty = true; netSend({ t: 'died' });
     el('go-txt').textContent = by === 'lava' ? t('gameover_lava') : by === 'void' ? 'You fell into the void!' : by ? t('gameover_pvp').replace('{n}', by) : t('gameover_txt');
     el('gameover').style.display = 'flex';
     if (locked) document.exitPointerLock();
@@ -2592,6 +2636,7 @@ function dropMeat(m) {                                              // a dead sh
   const n = 1 + (Math.random() < 0.5 ? 1 : 0), x = m.pos.x, y = m.pos.y + 0.5, z = m.pos.z;
   if (netState === 'on') netSend({ t: 'mobdrop', i: 130, n, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
   else spawnDrop(x, y, z, 130, 0, n);
+  if (Math.random() < 0.6) { if (netState === 'on') netSend({ t: 'mobdrop', i: 154, n: 1, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) }); else spawnDrop(x, y, z, 154, 0, 1); }   // leather
 }
 function createMonster() {
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -2769,7 +2814,23 @@ let fallPeak = 0;                                               // highest point
 function fallTrack() { if (player.onGround || player.pos.y > fallPeak) fallPeak = player.pos.y; }
 function maceSmash() { const f = fallPeak - player.pos.y; return !player.onGround && f > 1.5 ? Math.min(40, Math.floor(f * 2.5)) : 0; }   // the longer the fall, the harder the hit
 function maceHit() { const sm = maceSmash(); if (sm > 0) { sfx('smash'); fallPeak = player.pos.y; toast('💥 Smash! +' + sm); } return 6 + sm; }
-const swordDmg = () => { if (selectedType === 141 && inv[141] > 0) return maceHit(); const t = toolFor('sword'); return t ? t[1] : 1; };
+// ---------- tool wear and armor ----------
+const MAXUSE = { 115: 40, 118: 40, 121: 40, 124: 40, 116: 90, 119: 90, 122: 90, 125: 90, 117: 220, 120: 220, 123: 220, 126: 220, 135: 700, 136: 700, 137: 700, 138: 700,
+  142: 60, 143: 60, 144: 60, 145: 60, 146: 160, 147: 160, 148: 160, 149: 160, 150: 420, 151: 420, 152: 420, 153: 420 };
+let wear = {}; try { wear = JSON.parse(localStorage.getItem('sbx_wear') || '{}') || {}; } catch (e) { wear = {}; }
+let wearSaveT = null;
+function wearItem(id) {
+  if (!MAXUSE[id] || !(inv[id] > 0)) return;
+  wear[id] = (wear[id] || 0) + 1;
+  if (wear[id] >= MAXUSE[id]) { wear[id] = 0; inv[id]--; sfx('smash'); try { toast(iname(id) + (lang === 'de' ? ' ist kaputt!' : ' broke!')); } catch (e) {} renderInv(); }
+  else if (wear[id] % 8 === 0) renderInv();
+  clearTimeout(wearSaveT); wearSaveT = setTimeout(() => { try { localStorage.setItem('sbx_wear', JSON.stringify(wear)); } catch (e) {} }, 800);
+}
+const wearTool = kind => { const tl = toolFor(kind); if (tl) wearItem(tl[0]); };
+const ARMOR_PTS = {}; [[142, 1, 2, 1, 1], [146, 2, 3, 2, 1], [150, 3, 4, 3, 2]].forEach(([b, h, c, l, f]) => { ARMOR_PTS[b] = h; ARMOR_PTS[b + 1] = c; ARMOR_PTS[b + 2] = l; ARMOR_PTS[b + 3] = f; });
+function armorWorn() { const w = []; for (let slot = 0; slot < 4; slot++) { let best = 0; for (const b of [142, 146, 150]) if (inv[b + slot] > 0) best = b + slot; if (best) w.push(best); } return w; }
+const armorPts = () => armorWorn().reduce((a, id) => a + ARMOR_PTS[id], 0);
+const swordDmg = () => { if (selectedType === 141 && inv[141] > 0) return maceHit(); const t = toolFor('sword'); if (t) wearItem(t[0]); return t ? t[1] : 1; };
 function breakTimeOf(bid) { const bi = BLOCK_INFO[bid] || { h: 0.6 }, tl = bi.t ? toolFor(bi.t) : null; return bi.h / TIER_SPEED[tl ? tl[1] : 0] / xpMining(); }
 function canHarvest(bid) { const bi = BLOCK_INFO[bid]; if (!bi || !bi.min) return true; const tl = bi.t ? toolFor(bi.t) : null; return (tl ? tl[1] : 0) >= bi.min; }
 function dropFor(bid) {                                           // [item, count] or null (wrong tool = nothing drops)
@@ -2782,6 +2843,7 @@ function dropFor(bid) {                                           // [item, coun
 }
 function breakBlockAt(t) {
   const bid = getBlock(t.x, t.y, t.z); if (!bid) return;
+  { const bi = BLOCK_INFO[bid]; if (bi && bi.t) wearTool(bi.t); }
   sfx('dig', blockSnd(bid));
   if (bid !== 43 && getBlock(t.x, t.y + 1, t.z) === 43) breakBlockAt({ x: t.x, y: t.y + 1, z: t.z });      // a torch falls off when the block under it goes
   const drop = dropFor(bid), online = netState === 'on', d = isDoorId(bid) ? doorParts(t.x, t.y, t.z) : null;
@@ -3132,6 +3194,7 @@ const RECIPES = [
   recipe(105, 1, { 31: 1 }, 'furnace', true), recipe(106, 1, { 32: 1 }, 'furnace', true),
   recipe(135, 1, { 134: 3, 103: 2 }, 'table'), recipe(136, 1, { 134: 3, 103: 2 }, 'table'), recipe(137, 1, { 134: 1, 103: 2 }, 'table'), recipe(138, 1, { 134: 2, 103: 1 }, 'table'),
   recipe(15, 1, { 8: 9 }, 'table'),                                                        // chest: 9 planks at a crafting table
+  ...[[142, 154], [146, 105], [150, 134]].flatMap(([b, m]) => [recipe(b, 1, { [m]: 5 }, 'table'), recipe(b + 1, 1, { [m]: 8 }, 'table'), recipe(b + 2, 1, { [m]: 7 }, 'table'), recipe(b + 3, 1, { [m]: 4 }, 'table')]),
   recipe(43, 4, { 104: 1, 103: 1 })                                                       // 4 torches: coal + stick
 ];
 function stationNear(kind) {
@@ -3489,6 +3552,7 @@ document.addEventListener('mousemove', e => {
 document.addEventListener('mousedown', e => {
   if (!locked) return;
   if (e.button === 0) { attackHeld = true; doAttack(); } else if (e.button === 2) doPlace();
+  else if (e.button === 1 && target) { e.preventDefault(); const b = getBlock(target.x, target.y, target.z); if (b && inv[b] > 0) { selectedType = b; renderInv(); } }       // pick block
 });
 document.addEventListener('mouseup', e => { if (e.button === 0) attackHeld = false; });
 window.addEventListener('blur', () => { attackHeld = false; });
@@ -4402,16 +4466,16 @@ function ghostWipe() {                                              // throw the
   for (const k of Object.keys(localChests)) delete localChests[k]; openedChests.clear();
 }
 function ghostEnter() {
-  ghostSnap = { inv: Object.assign({}, inv), sel: selectedType, xp, hunger, hp: player.hp, bed: bedSpawn, pos: player.pos.clone(), yaw, pitch,
+  ghostSnap = { wear: Object.assign({}, wear), inv: Object.assign({}, inv), sel: selectedType, xp, hunger, hp: player.hp, bed: bedSpawn, pos: player.pos.clone(), yaw, pitch,
     edits: new Map([...chunkEdits].map(([k, m]) => [k, new Map(m)])), chests: JSON.parse(JSON.stringify(localChests)), opened: new Set(openedChests) };
-  GHOST = true; ghostWipe();
+  GHOST = true; ghostWipe(); wear = {}; ghostSnap.death = deathPt; deathPt = null; setDeathBeam();
   for (const i of ITEM_IDS) inv[i] = 0; xp = 0; hunger = 20; bedSpawn = null; player.hp = player.maxHp; player.alive = true; player.invincible = 0;
   goOffline(); respawnPlayer(false); renderInv(); xpUI(); updateHungerBar(); updateHud(true); updateSingleBtn();
 }
 function ghostLeave() {
   const S = ghostSnap; ghostSnap = null; GHOST = false; ghostWipe();
   if (S) {
-    for (const i of ITEM_IDS) inv[i] = S.inv[i] || 0; selectedType = S.sel; xp = S.xp; hunger = S.hunger; player.hp = S.hp; bedSpawn = S.bed;
+    deathPt = S.death || null; setDeathBeam(); wear = S.wear || {}; for (const i of ITEM_IDS) inv[i] = S.inv[i] || 0; selectedType = S.sel; xp = S.xp; hunger = S.hunger; player.hp = S.hp; bedSpawn = S.bed;
     for (const [k, m] of S.edits) chunkEdits.set(k, m); Object.assign(localChests, S.chests); for (const k of S.opened) openedChests.add(k);
     player.pos.copy(S.pos); player.vel.set(0, 0, 0); yaw = S.yaw; pitch = S.pitch;
   }
@@ -4827,6 +4891,38 @@ function vrPanelHit(c) {                                          // where the c
   if (Math.abs(x) > 0.12 || Math.abs(y) > 0.17) return null;
   return { u: (x + 0.1) / 0.2 * 256, v: (0.15 - y) / 0.3 * 384 };
 }
+const VR_COLS = 5, VR_ROWS = 5;
+function vrPanelLayout() {                                         // which inventory rows the wrist panel shows
+  const all = invList(), si = all.indexOf(selectedType), maxRow = Math.max(0, Math.ceil(all.length / VR_COLS) - VR_ROWS);
+  let row0 = Math.max(0, Math.min(Math.floor(si / VR_COLS) - VR_ROWS + 1 < 0 ? 0 : Math.floor(si / VR_COLS) - VR_ROWS + 1, maxRow));
+  if (vr.scroll !== null && vr.scroll !== undefined) { const r2 = Math.max(0, Math.min(vr.scroll, maxRow)); if (si < 0 || (Math.floor(si / VR_COLS) >= r2 && Math.floor(si / VR_COLS) < r2 + VR_ROWS)) row0 = r2; }   // a manual scroll holds while the chosen item stays in view
+  return { all, row0, maxRow };
+}
+function vrPanelSlot(c) {                                          // what the controller points at on the wrist panel: { id } (an item), { scroll: -1 | 1 } or null
+  if (!player.alive || VRM.open) return null;
+  const h = vrPanelHit(c); if (!h) return null;
+  const L = vrPanelLayout();
+  if (h.u >= 214 && h.v > 66 && h.v < 100 && L.row0 > 0) return { scroll: -1 };
+  if (h.u >= 214 && h.v > 330 && h.v < 362 && L.row0 < L.maxRow) return { scroll: 1 };
+  const col = Math.floor((h.u - 3) / 50), row = Math.floor((h.v - 82) / 54);
+  if (col < 0 || col >= VR_COLS || row < 0 || row >= VR_ROWS) return null;
+  const id = L.all[(L.row0 + row) * VR_COLS + col];
+  return id ? { id } : null;
+}
+function vrPanelPick(c) {                                          // trigger on the wrist panel: choose the item (true = handled)
+  const h = vrPanelSlot(c); if (!h) return false;
+  if (h.scroll) { vr.scroll = Math.max(0, vrPanelLayout().row0 + h.scroll); }
+  else {
+    const keep = vrPanelLayout().row0, now = performance.now();
+    if (vr.lastPick && vr.lastPick.id === h.id && now - vr.lastPick.t < 450) { vr.lastPick = null; tossId(h.id, 1); vr.msg = (lang === 'de' ? 'Weggeworfen: ' : 'Dropped: ') + iname(h.id); vr.msgT = 1.5; }   // double click = drop one
+    else { vr.lastPick = { id: h.id, t: now }; selectedType = h.id; vr.scroll = keep; sfx('click'); }
+  }
+  renderInv(); vrDirty = true; return true;
+}
+function vrPanelHover() {
+  let hv = 0; for (const c of vr.ctrls) { const h = vrPanelSlot(c); if (h && h.id) { hv = h.id; break; } }
+  if (hv !== (vr.hover || 0)) { vr.hover = hv; vrDirty = true; }
+}
 function vrDeadClick(c) { const h = vrPanelHit(c); if (h && h.u > 0 && h.u < 256 && h.v > 120 && h.v < 250) restartGame(); }
 function vrDeadTick() {                                           // dead in VR: keep the wrist panel up to date and let A / X respawn
   if (VRM.open) vrMenuClose();
@@ -4853,9 +4949,9 @@ function vrSetupOnce() {
       if (vr.panel && e.data && (e.data.handedness === 'left' || (!vr.panel.parent && e.data.handedness === 'none'))) c.add(vr.panel);
     });
     c.addEventListener('disconnected', () => { c.userData.src = null; });
-    c.addEventListener('selectstart', () => { if (!player.alive) { vrDeadClick(c); return; } if (VRM.open) { vrMenuClick(c); return; } vr.hold[i] = true; vrAct(c, 'break'); });
+    c.addEventListener('selectstart', () => { if (!player.alive) { vrDeadClick(c); return; } if (VRM.open) { vrMenuClick(c); return; } if (vrPanelPick(c)) return; vr.hold[i] = true; vrAct(c, 'break'); });
     c.addEventListener('selectend', () => { vr.hold[i] = false; });
-    c.addEventListener('squeezestart', () => { if (VRM.open) vrMenuClick(c); else vrAct(c, 'place'); });
+    c.addEventListener('squeezestart', () => { if (VRM.open) vrMenuClick(c); else if (!vrPanelPick(c)) vrAct(c, 'place'); });
     rig.add(c); vr.ctrls.push(c);
   }
   vr.cv = document.createElement('canvas'); vr.cv.width = 256; vr.cv.height = 384;
@@ -4884,19 +4980,21 @@ function drawVrPanel() {
   c.globalAlpha = 1;
   { const q = xpLevel(); c.fillStyle = 'rgba(255,255,255,0.22)'; c.fillRect(6, 72, 196, 8); c.fillStyle = '#7CFC3A'; c.fillRect(6, 72, Math.round(196 * q.left / q.need), 8);   // XP bar under the hunger bar
     c.fillStyle = '#7CFC3A'; c.font = 'bold 14px Arial'; c.textBaseline = 'middle'; c.fillText('Lv ' + q.lv, 208, 77); c.font = '30px sans-serif'; }
-  const all = invList(), COLS = 5, ROWS = 5, si = all.indexOf(selectedType);
-  const row0 = Math.max(0, Math.min(Math.floor(si / COLS) - ROWS + 1 < 0 ? 0 : Math.floor(si / COLS) - ROWS + 1, Math.max(0, Math.ceil(all.length / COLS) - ROWS)));
+  const { all, row0 } = vrPanelLayout(), COLS = VR_COLS, ROWS = VR_ROWS;
   const list = all.slice(row0 * COLS, (row0 + ROWS) * COLS);
   c.imageSmoothingEnabled = false;
   if (!all.length) { c.fillStyle = '#cde'; c.font = '20px Arial'; c.fillText(t('inv_empty'), 10, 110, 236); }
   list.forEach((id, j) => {
     const x = 3 + (j % COLS) * 50, y = 82 + ((j / COLS) | 0) * 54;
+    if (id === vr.hover && id !== selectedType) { c.fillStyle = 'rgba(120,200,255,0.3)'; c.fillRect(x, y, 48, 52); c.strokeStyle = '#7cf'; c.lineWidth = 2; c.strokeRect(x + 1, y + 1, 46, 50); }
     if (id === selectedType) { c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(x, y, 48, 52); c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(x + 1, y + 1, 46, 50); }
     c.drawImage(atlasCanvas, BLOCKS[id].icon * TILE, 0, TILE, TILE, x + 8, y + 3, 32, 32);
     c.font = 'bold 17px Arial'; c.fillStyle = '#fff'; c.textAlign = 'center'; c.fillText(String(inv[id]), x + 24, y + 44, 44); c.textAlign = 'left';
+    if (MAXUSE[id] && wear[id] > 0) { const f = 1 - wear[id] / MAXUSE[id]; c.fillStyle = '#222'; c.fillRect(x + 6, y + 36, 36, 3); c.fillStyle = f > 0.5 ? '#4c4' : f > 0.2 ? '#ec4' : '#e44'; c.fillRect(x + 6, y + 36, Math.round(36 * f), 3); }
   });
   if (row0 > 0) { c.fillStyle = '#fff'; c.font = '14px Arial'; c.fillText('▲', 238, 76); }
   if ((row0 + ROWS) * COLS < all.length) { c.fillStyle = '#fff'; c.font = '14px Arial'; c.fillText('▼', 238, 350); }
+  if (!vr.msg) { c.fillStyle = '#bfe'; c.font = '14px Arial'; const hv = vr.hover ? iname(vr.hover) + ' · ' : ''; c.fillText(hv + (armorPts() ? '🛡' + armorPts() + ' · ' : '') + Math.round(player.pos.x) + ' ' + Math.round(player.pos.y) + ' ' + Math.round(player.pos.z), 6, 370, 244); }
   if (vr.msg) { c.fillStyle = '#ffe9a8'; c.font = '15px Arial'; c.fillText(vr.msg, 6, 370, 244); }                        // messages (like "You are not hungry") show here in VR
   vr.tex.needsUpdate = true;
 }
@@ -5042,7 +5140,7 @@ function drawVrMenu() {
     btn(380, 352, 100, 56, '−', () => applyMusic(musicVol - 10, true), musicVol > 0, false);
     btn(500, 352, 100, 56, '+', () => applyMusic(musicVol + 10, true), musicVol < 100, false);
     btn(40, 270, 300, 50, voice.on ? '🎙️ Mic: ON (open mic)' : '🎤 Mic: OFF', () => voiceToggle(), true, voice.on);
-    btn(355, 270, 275, 50, vr.hm ? '🖐 Hand movement: ON' : '🖐 Hand movement: OFF', () => setHandMove(!vr.hm), true, vr.hm);
+    btn(355, 270, 275, 50, vr.hm ? '🖐 Hand movement (experimental): ON' : '🖐 Hand movement (experimental): OFF', () => setHandMove(!vr.hm), true, vr.hm);
     c.font = '15px Arial'; c.fillStyle = '#9ab'; c.fillText('Hand movement (experimental): push off blocks and the ground with your hands.', 40, 334, 590);
     c.font = '17px Arial'; c.fillStyle = '#aab';
     c.fillText('Open / close this menu: left Y button or press a thumbstick.', 40, 440);
@@ -5126,6 +5224,7 @@ function vrPreUpdate(dt) {                                       // before movem
 function vrTargets() {                                           // pointer lines + the block the main hand points at
   rig.updateMatrixWorld(true);
   if (VRM.open) { vrMenuTargets(); return; }
+  vrPanelHover();
   let mainHit = null;
   for (const c of vr.ctrls) {
     const a = vrRay(c), hit = raycastVoxel(a.o, a.d, 6), len = hit ? Math.hypot(hit.x - a.o.x, hit.y - a.o.y, hit.z - a.o.z) - 0.3 : 6;
@@ -5272,7 +5371,7 @@ function update() {
   updateTarget();
   updateMining(dt);
   updateMonsters(dt);
-  updateDrops(dt); sfxTick(dt); ghostSteveTick(dt);
+  updateDrops(dt); sfxTick(dt); ghostSteveTick(dt); compassTick(dt);
   updateVillagers(dt); netEntsTick(dt); updateCorpses(dt); voiceUpdate(); updateHeldLocal();
   netUpdate(dt);
 
