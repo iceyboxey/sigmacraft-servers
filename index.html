@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-07T21:25">
+<meta name="sbx-build" content="2026-11-07T21:50">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -5184,6 +5184,7 @@ function handPen(x, y, z) {                                        // how far is
     if (isSolidId(getBlock(ix + sx, iy + sy, iz + sz))) continue;
     const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > bd) { bd = d; bx = dx; by = dy; bz = dz; }
   }
+  if (bd > 0.25) { const k = 0.25 / bd; bx *= k; by *= k; bz *= k; bd = 0.25; }          // a hand far inside a block (through a thin wall) is only nudged a little: no big jumps
   return bd > 0.003 ? { x: bx, y: by, z: bz, d: bd } : null;
 }
 function vrHandMove(dt) {                                          // a hand inside a block is pushed back out by moving YOUR BODY; dragging along a block pulls you the other way
@@ -5205,13 +5206,13 @@ function vrHandMove(dt) {                                          // a hand ins
     cx += pen.x - nx * ap; cy += pen.y - ny * ap; cz += pen.z - nz * ap; n++; if (Math.abs(ny) < 0.5) wall++;
   });
   if (n) {
-    vx /= n; vy /= n; vz /= n; { const cl = Math.hypot(cx, cy, cz) / n, k = cl > 0.06 ? 0.06 / cl : 1; player.pos.x += cx / n * k; player.pos.y += cy / n * k; player.pos.z += cz / n * k; }
-    const sp = Math.hypot(vx, vy, vz); if (sp > 7) { const k = 7 / sp; vx *= k; vy *= k; vz *= k; }
+    vx /= n; vy /= n; vz /= n; { const q = 0.25 / dt; vx += cx / n * q; vy += cy / n * q; vz += cz / n * q; }          // the rest of the sinking is eased out through the normal movement (never teleports you into a block)
+    const sp = Math.hypot(vx, vy, vz); if (sp > 8) { const k = 8 / sp; vx *= k; vy *= k; vz *= k; }
     vr.hmv.x = vx; vr.hmv.z = vz;
     if (vy > 0 || !player.onGround) player.vel.y = vy;               // pushing down on the ground launches you, pulling down on a wall lifts you
     if (wall === 2 && sp < 0.5) player.vel.y = Math.max(player.vel.y, 0);   // hanging on a wall with both hands: no falling (the ground never holds you)
   } else {
-    const k = Math.exp(-(player.onGround ? 9 : 1.3) * dt); vr.hmv.x *= k; vr.hmv.z *= k;       // let go: you keep flying
+    const k = Math.exp(-(player.onGround ? 4 : 0.5) * dt); vr.hmv.x *= k; vr.hmv.z *= k;       // let go: you glide on: you keep flying
   }
   player.vel.x += vr.hmv.x; player.vel.z += vr.hmv.z;
 }
