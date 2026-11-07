@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-07T20:40">
+<meta name="sbx-build" content="2026-11-07T21:05">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -5258,6 +5258,17 @@ function vrTargets() {                                           // pointer line
 // No x-ray: walking in your room can push your head into a block. The head is stopped at the block (the player is pushed back, like a wall); if it still ends up inside (leaning down, a block placed on you) the view goes black.
 const vrBlack = (() => { const m = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({ color: 0x000000, depthTest: false, depthWrite: false, fog: false })); m.position.set(0, 0, -0.13); m.renderOrder = 9999; m.visible = false; m.frustumCulled = false; camera.add(m); return m; })();
 function headInBlock(x, y, z) { for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) if (isSolidId(getBlock(Math.round(x + sx * 0.13), Math.round(y + sy * 0.13), Math.round(z + sz * 0.13)))) return true; return false; }
+// Hand movement: you are not a tall person standing on the floor - you are a small body held up by your arms (like Gorilla Tag).
+// So the world is raised around you: your head sits about 0.9 m above the block floor, and the body is only 1 m tall.
+let hmHead = 0, hmDrop = 0;
+function vrHmUpdate(dt) {
+  if (!vr.hm) { hmHead = 0; hmDrop += (0 - hmDrop) * Math.min(1, dt * 6); player.h = 1.8; return; }
+  const hy = camera.position.y;                                    // head height above the play-space floor
+  if (hy > hmHead || hmHead === 0) hmHead = hy; else hmHead += (hy - hmHead) * Math.min(1, dt * 0.05);       // your standing height (it forgets slowly)
+  const want = Math.max(0, Math.min(1.1, hmHead - 0.9));
+  hmDrop += (want - hmDrop) * Math.min(1, dt * 6);
+  player.h = 1.0;
+}
 function vrHeadGuard() {
   camera.updateMatrixWorld(true);
   let e = camera.matrixWorld.elements, blocked = headInBlock(e[12], e[13], e[14]);
@@ -5265,13 +5276,14 @@ function vrHeadGuard() {
     const ox = player.pos.x, oz = player.pos.z;
     player.pos.x += vr.lastHead.x - e[12]; player.pos.z += vr.lastHead.z - e[14];
     if (boxCollides(player.pos.x, player.pos.y, player.pos.z, player.hw, player.h)) { player.pos.x = ox; player.pos.z = oz; }
-    else { rig.position.set(player.pos.x, player.pos.y - 0.05, player.pos.z); rig.updateMatrixWorld(true); camera.updateMatrixWorld(true); e = camera.matrixWorld.elements; blocked = headInBlock(e[12], e[13], e[14]); }
+    else { rig.position.set(player.pos.x, player.pos.y - 0.05 - hmDrop, player.pos.z); rig.updateMatrixWorld(true); camera.updateMatrixWorld(true); e = camera.matrixWorld.elements; blocked = headInBlock(e[12], e[13], e[14]); }
   }
   if (!blocked) vr.lastHead = { x: e[12], y: e[13], z: e[14] };
   vrBlack.visible = blocked;
 }
-function vrPostUpdate() {                                        // after movement: put the rig where the player is
-  rig.position.set(player.pos.x, player.pos.y - 0.05, player.pos.z);
+function vrPostUpdate(dt) {                                        // after movement: put the rig where the player is
+  try { vrHmUpdate(dt || 0.016); } catch (e) {}
+  rig.position.set(player.pos.x, player.pos.y - 0.05 - hmDrop, player.pos.z);
   rig.updateMatrixWorld(true);
   try { vrHeadGuard(); } catch (e) {}
   if (VRM.open && (vrDirty || VRM.dirty)) drawVrMenu();
@@ -5385,7 +5397,7 @@ function update() {
   }
   if (player.pos.y < Y_MIN - 12) { if (player.pos.x >= VOID_X0) voidFall(); else respawnPlayer(); }
   portalCheck(dt); updatePointers(dt); updateArrows(dt); updateEArrows(dt); updateBooms(dt); updateFluids(dt); musicTick(dt);
-  if (xrActive) vrPostUpdate();
+  if (xrActive) vrPostUpdate(dt);
   else { camera.position.set(player.pos.x, player.pos.y + EYE - deathF() * 1.1, player.pos.z); camera.updateMatrixWorld(); }
 
   updateTarget();
