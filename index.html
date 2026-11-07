@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="sbx-build" content="2026-11-07T20:15">
+<meta name="sbx-build" content="2026-11-07T20:40">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>3D Sandbox</title>
 <style>
@@ -4942,7 +4942,7 @@ function vrSetupOnce() {
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3));
     const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffffff })); line.scale.z = 5; c.add(line);
     const hand = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.13), new THREE.MeshBasicMaterial({ color: 0xd9a066 })); hand.position.z = 0.04; c.add(hand);
-    c.userData = { i, src: null, line };
+    c.userData = { i, src: null, line, hand };
     c.addEventListener('connected', e => {
       c.userData.src = e.data;
       if (e.data && e.data.handedness === 'right') vr.main = i;
@@ -5165,29 +5165,49 @@ function setHandMove(on) {
   try { localStorage.setItem('sbx_hm', on ? '1' : '0'); } catch (e) {}
   toast(on ? '🖐 Hand movement ON: push the ground and walls with your hands to move. Thumbstick walking is off.' : 'Hand movement off');
 }
-const HM_R = 0.14;
-function handTouch(x, y, z) {                                      // is a solid block touching a ball of 14 cm around the hand?
-  for (const [dx, dy, dz] of [[0, 0, 0], [HM_R, 0, 0], [-HM_R, 0, 0], [0, HM_R, 0], [0, -HM_R, 0], [0, 0, HM_R], [0, 0, -HM_R]])
-    if (isSolidId(getBlock(Math.round(x + dx), Math.round(y + dy), Math.round(z + dz)))) return true;
-  return false;
+const HM_R = 0.11;
+function handPen(x, y, z) {                                        // how far is a hand ball (11 cm) inside blocks? returns the push-out vector {x,y,z,d} or null
+  const cx0 = Math.round(x), cy0 = Math.round(y), cz0 = Math.round(z);
+  let bx = 0, by = 0, bz = 0, bd = 0;
+  for (let ix = cx0 - 1; ix <= cx0 + 1; ix++) for (let iy = cy0 - 1; iy <= cy0 + 1; iy++) for (let iz = cz0 - 1; iz <= cz0 + 1; iz++) {
+    if (!isSolidId(getBlock(ix, iy, iz))) continue;
+    const qx = Math.max(ix - 0.5, Math.min(x, ix + 0.5)), qy = Math.max(iy - 0.5, Math.min(y, iy + 0.5)), qz = Math.max(iz - 0.5, Math.min(z, iz + 0.5));
+    let dx = x - qx, dy = y - qy, dz = z - qz; const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 >= HM_R * HM_R) continue;
+    if (d2 > 1e-10) { const d = Math.sqrt(d2), k = (HM_R - d) / d; dx *= k; dy *= k; dz *= k; }
+    else {                                                         // the hand centre is inside a block: leave through the nearest face
+      const o = [[x - (ix - 0.5), -1, 0, 0], [ix + 0.5 - x, 1, 0, 0], [y - (iy - 0.5), 0, -1, 0], [iy + 0.5 - y, 0, 1, 0], [z - (iz - 0.5), 0, 0, -1], [iz + 0.5 - z, 0, 0, 1]].sort((a, b) => a[0] - b[0])[0];
+      dx = o[1] * (o[0] + HM_R); dy = o[2] * (o[0] + HM_R); dz = o[3] * (o[0] + HM_R);
+    }
+    const ax = Math.abs(dx), ay = Math.abs(dy), az = Math.abs(dz);                       // a face hidden by the next solid block does not count
+    const sx = ax >= ay && ax >= az ? Math.sign(dx) : 0, sy = ay > ax && ay >= az ? Math.sign(dy) : 0, sz = az > ax && az > ay ? Math.sign(dz) : 0;
+    if (isSolidId(getBlock(ix + sx, iy + sy, iz + sz))) continue;
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > bd) { bd = d; bx = dx; by = dy; bz = dz; }
+  }
+  return bd > 0.003 ? { x: bx, y: by, z: bz, d: bd } : null;
 }
-function vrHandMove(dt) {                                          // a hand that touches a block stays where it is in the world: your body moves the other way
+function vrHandMove(dt) {                                          // a hand inside a block is pushed back out by moving YOUR BODY; dragging along a block pulls you the other way
   if (!player.alive || VRM.open || dt <= 0 || dt > 0.1) { vr.hmPrev = [null, null]; vr.hmT = [false, false]; return; }
   rig.updateMatrixWorld(true);
-  let n = 0, vx = 0, vy = 0, vz = 0;
+  let n = 0, vx = 0, vy = 0, vz = 0, wall = 0;
   vr.ctrls.forEach((c, i) => {
     c.updateMatrixWorld(true);
     const e = c.matrixWorld.elements, rx = e[12] - rig.position.x, ry = e[13] - rig.position.y, rz = e[14] - rig.position.z, pv = vr.hmPrev[i];
     vr.hmPrev[i] = [rx, ry, rz];
-    const touch = !!pv && handTouch(e[12], e[13], e[14]); vr.hmT[i] = touch;
-    if (touch) { vx -= (rx - pv[0]) / dt; vy -= (ry - pv[1]) / dt; vz -= (rz - pv[2]) / dt; n++; }
+    const pen = handPen(e[12], e[13], e[14]); vr.hmT[i] = !!pen;
+    const hd = c.userData.hand;
+    if (hd) { if (pen) { const lp = c.worldToLocal(new THREE.Vector3(e[12] + pen.x, e[13] + pen.y, e[14] + pen.z)); hd.position.set(lp.x, lp.y, lp.z); } else hd.position.set(0, 0, 0.04); }   // the visible hand stays ON the surface
+    if (!pen || !pv) return;
+    const nx = pen.x / pen.d, ny = pen.y / pen.d, nz = pen.z / pen.d;
+    let dx = rx - pv[0], dy = ry - pv[1], dz = rz - pv[2]; const dn = dx * nx + dy * ny + dz * nz; dx -= nx * dn; dy -= ny * dn; dz -= nz * dn;   // hand motion along the surface
+    vx += (pen.x - dx) / dt; vy += (pen.y - dy) / dt; vz += (pen.z - dz) / dt; n++; if (Math.abs(ny) < 0.5) wall++;
   });
   if (n) {
     vx /= n; vy /= n; vz /= n;
-    const sp = Math.hypot(vx, vy, vz); if (sp < 0.3) { vx = vy = vz = 0; } else if (sp > 9) { const k = 9 / sp; vx *= k; vy *= k; vz *= k; }
+    const sp = Math.hypot(vx, vy, vz); if (sp > 9) { const k = 9 / sp; vx *= k; vy *= k; vz *= k; }
     vr.hmv.x = vx; vr.hmv.z = vz;
     if (vy > 0 || !player.onGround) player.vel.y = vy;               // pushing down on the ground launches you, pulling down on a wall lifts you
-    if (n === 2 && sp < 0.3) player.vel.y = Math.max(player.vel.y, 0);   // hanging on with both hands: no falling
+    if (wall === 2 && sp < 0.5) player.vel.y = Math.max(player.vel.y, 0);   // hanging on a wall with both hands: no falling (the ground never holds you)
   } else {
     const k = Math.exp(-(player.onGround ? 7 : 0.7) * dt); vr.hmv.x *= k; vr.hmv.z *= k;       // let go: you keep flying
   }
