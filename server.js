@@ -319,7 +319,7 @@ function handle(p, m) {
   } else if (m.t === 'mobdrop') {       // an animal died: its meat drops for everybody
     const now = Date.now(); if (now - (p.mobT || 0) < 100) return; p.mobT = now;
     const n = int(m.n, 1, 3), x = Number(m.x), y = Number(m.y), z = Number(m.z);
-    if ((m.i !== 100 && m.i !== 111 && m.i !== 113 && m.i !== 130 && m.i !== 132 && m.i !== 139) || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
+    if ((m.i !== 100 && m.i !== 111 && m.i !== 154 && m.i !== 113 && m.i !== 130 && m.i !== 132 && m.i !== 139) || n === null || ![x, y, z].every(Number.isFinite) || Math.hypot(x - p.x, z - p.z) > 140) return;
     for (let k = 0; k < n; k++) addDrop(room, m.i, x, y, z);
   } else if (m.t === 'boom') {         // a creeper exploded: the others see and feel it (the blocks arrive as normal block changes)
     const now = Date.now(); if (now - (p.boomT || 0) < 250) return; p.boomT = now;
